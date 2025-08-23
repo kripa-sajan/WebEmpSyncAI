@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { useLogin } from "@/hooks/useLogin"
 import { useRouter } from "next/navigation";
 import { useRequestOtp } from "@/hooks/useRequestOtp"
+import { useAuth } from "@/context/AuthContext"
 
 const emailSchema = z.object({
   email: z.email(),
@@ -23,6 +24,7 @@ type EmailValues = z.infer<typeof emailSchema>
 type MobileValues = z.infer<typeof mobileSchema>
 
 export default function SignInPage() {
+  const { setAuthData }=useAuth()
   const [mode, setMode] = useState<"email" | "mobile">("email")
   const route=useRouter()
 
@@ -41,7 +43,9 @@ export default function SignInPage() {
 
   const handleEmailLogin = (values: EmailValues) => {
     loginMutation.mutate(values,{
-      onSuccess: () => {
+      onSuccess: (data) => {
+        console.log("Login successful", data.data)
+        setAuthData(data.data.user, data.data.company, data.data.is_admin);
         route.push("/dashboard")
       },
       onError: (error: any) => {
@@ -53,9 +57,9 @@ export default function SignInPage() {
 
   const handleMobileLogin = (values: MobileValues) => {
   requestOtpMutation.mutate(values, {
-    onSuccess: (variables) => {
+    onSuccess: () => {
       alert("OTP sent to " + values.mobile);
-      route.push("/auth/otp-verification?mobile=" + variables.mobile);
+      route.push("/auth/otp-verification?mobile=" + values.mobile);
     },
     onError: (error: any) => {
       alert("Failed to send OTP: " + error.message);

@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     }
 
     // Example: set httpOnly cookie for production
-    const response = NextResponse.json({ data,success: true });
+    const response = NextResponse.json(data);
     const token = data.access_token|| data.token; // Adjust based on your API response
     response.cookies.set({
       name: "access_token",

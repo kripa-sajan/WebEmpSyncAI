@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,7 +33,14 @@ type OtpFormValues = z.infer<typeof otpSchema>;
 export default function OtpVerificationPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const mobile = searchParams.get("mobile") || "";
+  const mobile = searchParams.get("mobile");
+
+  useEffect(() => {
+    if (!mobile) {
+      toast.error("Mobile number is missing. Please try again.");
+      router.push("/auth/sign-in");
+    }
+  }, [mobile, router]);
 
   const otpVerificationMutation = useVerifyLoginOtp();
 
@@ -44,13 +52,13 @@ export default function OtpVerificationPage() {
   });
 
   function onSubmit(data: OtpFormValues) {
+    if (!mobile) return;
+    
     otpVerificationMutation.mutate(
       { otp: data.otp, mobile },
       {
         onSuccess: (res) => {
           toast.success("OTP verified successfully ✅");
-          // store token, set auth state, redirect etc
-          // localStorage.setItem("token", res.token)
           router.push("/dashboard");
         },
         onError: (err: any) => {
@@ -58,6 +66,10 @@ export default function OtpVerificationPage() {
         },
       }
     );
+  }
+
+  if (!mobile) {
+    return null; 
   }
 
   return (

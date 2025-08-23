@@ -4,7 +4,8 @@ export function useVerifyLoginOtp() {
   return useMutation({
     mutationFn: async (values: { mobile:string,otp:string }) => {
       const mobileNumber=Number(values.mobile);
-      const otpNumber=Number(values.otp);
+      const otpNumber =Number(values.otp);
+    
       const res = await fetch("/api/auth/verify-login-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

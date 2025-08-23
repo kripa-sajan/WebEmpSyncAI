@@ -5,7 +5,9 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     
-    const res = await fetch(`${process.env.API_URL}/verify-login-otp`, {
+    const api_url = `${process.env.API_URL}/verify-login-otp`;
+
+    const res = await fetch(api_url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -15,17 +17,19 @@ export async function POST(req: Request) {
 
     const data = await res.json();
 
+    console.log("Received response from external API. Status:", res.status);
+    console.log("External API response body:", JSON.stringify(data, null, 2));
+
     if (!res.ok) {
-      return NextResponse.json({ error: data?.message || "Login failed" }, { status: res.status });
+      console.error("External API returned an error.");
+      return NextResponse.json({ error: data?.message || "Verification failed", details: data }, { status: res.status });
     }
 
-    // Example: set httpOnly cookie for production
-    const response = NextResponse.json({ data,success: true });
+    const response = NextResponse.json({ data, success: true });
     
-
     return response;
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("Error in /api/auth/verify-login-otp:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

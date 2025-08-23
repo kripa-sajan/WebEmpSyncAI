@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { ThemeProvider } from "@/components/theme-provider"
 import "./globals.css"
 import Providers from "@/providers/query-client"
+import { AuthProvider } from "@/context/AuthContext"
 
 export const metadata: Metadata = {
   title: "EmpSync AI - Admin Dashboard",
@@ -22,9 +23,11 @@ export default function RootLayout({
       </head>
       <body className="bg-background text-foreground antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <AuthProvider>
           <Providers>
           {children}
           </Providers>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

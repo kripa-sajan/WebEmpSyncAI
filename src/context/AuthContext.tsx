@@ -1,0 +1,105 @@
+"use client";
+
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+
+export type User = {
+  prof_img: string;
+  first_name: string;
+  last_name: string;
+  mobile: string;
+  role: string;
+  is_active: boolean;
+  biometric_id: string;
+  email: string;
+  id: number;
+  is_superuser: boolean;
+  gender_display: string;
+  gender: string;
+  is_whatsapp: boolean;
+  is_sms: boolean;
+  is_wfh: boolean;
+  group: string;
+};
+
+export type Company = {
+  id: number;
+  company_name: string;
+  company_img: string;
+  latitude: number;
+  longitude: number;
+  perimeter: number;
+  travel_speed_threshold: number;
+  daily_working_hours: number;
+  work_summary_interval: string;
+  punch_mode: string;
+  is_admin: boolean;
+};
+
+type AuthContextType = {
+  user: User | null;
+  company: Company | null;
+  isAdmin: boolean | null; // Added isAdmin
+  loading: boolean; // Added loading state
+  setAuthData: (user: User
+    ,
+     company: Company,
+      isAdmin: boolean
+    ) => void; // Modified setAuthData
+};
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      const storedCompany = localStorage.getItem("company");
+      const storedIsAdmin = localStorage.getItem("isAdmin");
+
+      if (storedUser && storedCompany && storedIsAdmin) {
+        setUser(JSON.parse(storedUser));
+        setCompany(JSON.parse(storedCompany));
+        setIsAdmin(JSON.parse(storedIsAdmin));
+      }
+    } catch (error) {
+      console.error("Failed to parse auth data from localStorage", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const setAuthData = (
+    userData: User,
+    companyData: Company,
+    isAdminData: boolean
+  ) => {
+    setUser(userData);
+    setCompany(companyData);
+    setIsAdmin(isAdminData);
+
+    try {
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("company", JSON.stringify(companyData));
+      localStorage.setItem("isAdmin", JSON.stringify(isAdminData));
+    } catch (error) {
+      console.error("Failed to save auth data to localStorage", error);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, company, isAdmin, loading, setAuthData }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
+};
