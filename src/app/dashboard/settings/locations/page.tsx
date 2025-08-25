@@ -25,6 +25,7 @@ function LocationSelector({ position, setPosition }: any) {
   return position === null ? null : <Marker position={position} icon={markerIcon} />
 }
 
+
 function CompanyLocationMap({ company }: { company: any }) {
   const [position, setPosition] = useState<[number, number] | null>(null)
   const [isLoading, setIsLoading] = useState(true)
