@@ -1,25 +1,36 @@
-'use client'
+"use client"
+
 import { useAuth } from "@/context/AuthContext";
+import { User } from "@/context/AuthContext"
+import { useEmployees } from "@/hooks/employees/useGetEmployees"
+import Link from "next/link";
+
+function EmployeesList({ companyId }: { companyId: number }) {
+  const { data, isLoading, isError } = useEmployees(companyId)
+
+  if (isLoading) return <p>Loading employees...</p>
+  if (isError) return <p>Failed to load employees</p>
+
+  return (
+    <ul className="space-y-2">
+      {data?.map((emp: User) => (
+        <Link href={`/dashboard/employees/${emp.id}`} key={emp.id}>
+          <li className="border p-2 rounded-md cursor-pointer hover:bg-gray-100">
+            <p className="font-medium">{emp.first_name}{emp.last_name}</p>
+            <p className="text-sm text-gray-500">{emp.email}</p>
+          </li>
+        </Link>
+      ))}
+    </ul>
+  )
+}
 
 export default function EmployeesPage() {
-  const { user, loading } = useAuth();
+  const { company } = useAuth();
 
-  if (loading) {
-    return <div>Loading...</div>; // Or a spinner component
+  if (!company) {
+    return <p>No company selected</p>;
   }
 
-  if (!user) {
-    return <div>
-      <h1 className="text-3xl font-bold text-foreground">Employees</h1>
-      <p className="text-lg">This is the Employees page.</p>
-      <p>User not found. Please log in.</p>
-    </div>;
-  }
-  
-  return <div>
-    <h1 className="text-3xl font-bold text-foreground">Employees</h1>
-    <p className="text-lg">This is the Employees page.</p>
-    <p>User: {user.email}</p>
-    <p>Role: {user.role}</p>
-  </div> 
+  return <EmployeesList companyId={company.id} />;
 }

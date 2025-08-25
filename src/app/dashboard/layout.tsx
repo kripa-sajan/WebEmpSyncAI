@@ -1,12 +1,14 @@
-import type React from "react"
-import { Sidebar } from "@/components/sidebar"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { SignOutButton } from "@/components/sign-out-button"
+import type React from "react";
+import { Sidebar } from "@/components/sidebar";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { SignOutButton } from "@/components/sign-out-button";
+import { ProfileButton } from "@/components/profile-button";
+import "leaflet/dist/leaflet.css";
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <div className="flex h-screen bg-background">
@@ -18,6 +20,7 @@ export default function DashboardLayout({
           <div className="flex items-center space-x-2">
             <ThemeToggle />
             <SignOutButton />
+            <ProfileButton />
           </div>
         </header>
 
@@ -25,5 +28,5 @@ export default function DashboardLayout({
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
     </div>
-  )
+  );
 }

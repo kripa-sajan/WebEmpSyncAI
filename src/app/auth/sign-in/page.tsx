@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { useLogin } from "@/hooks/useLogin"
 import { useRouter } from "next/navigation";
 import { useRequestOtp } from "@/hooks/useRequestOtp"
-import { useAuth } from "@/context/AuthContext"
+import { Company, useAuth } from "@/context/AuthContext"
 
 const emailSchema = z.object({
   email: z.email(),
@@ -40,20 +40,45 @@ export default function SignInPage() {
     resolver: zodResolver(mobileSchema),
     defaultValues: { mobile : "" },
   })
-
-  const handleEmailLogin = (values: EmailValues) => {
-    loginMutation.mutate(values,{
-      onSuccess: (data) => {
-        console.log("Login successful", data.data)
-        setAuthData(data.data.user, data.data.company, data.data.is_admin);
-        route.push("/dashboard")
-      },
-      onError: (error: any) => {
-        alert("Login failed: " + error.message)
-      },
-    })
-    
+ async  function fetchUserCompanies(){
+  const res=await fetch('/api/user/companies')
+  if(!res.ok){
+    throw new Error('Failed to fetch user companies')
   }
+  const data=await res.json()
+  return data
+
+ }
+  const handleEmailLogin = (values: EmailValues) => {
+  loginMutation.mutate(values, {
+    onSuccess: async (data) => {
+      try {
+        const companies = await fetchUserCompanies();
+
+        // pick the first admin company
+        const adminCompany = companies?.data?.find(
+          (comp: any) => comp.is_admin === true
+        );
+
+        // fallback: use login response company if no admin company found
+        const finalCompany = adminCompany || data.data.company;
+
+        setAuthData(data.data.user, finalCompany, finalCompany?.is_admin);
+
+        route.push("/dashboard");
+      } catch (err) {
+        console.error("Error fetching companies:", err);
+        // fallback in case fetch fails too
+        setAuthData(data.data.user, data.data.company, data.data.company?.is_admin);
+        route.push("/dashboard");
+      }
+    },
+    onError: (error: any) => {
+      alert("Login failed: " + error.message);
+    },
+  });
+};
+
 
   const handleMobileLogin = (values: MobileValues) => {
   requestOtpMutation.mutate(values, {
