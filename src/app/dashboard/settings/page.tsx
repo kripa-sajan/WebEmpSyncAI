@@ -25,7 +25,7 @@ export default function SettingsPage() {
           title: "Report ",
           description: "Generate comprehensive employee reports",
           icon: FileText,
-          href: "/dashboard/reports/employees",
+          href: "/dashboard/settings/report",
         },
        
         

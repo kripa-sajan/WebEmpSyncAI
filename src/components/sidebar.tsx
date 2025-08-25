@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { ChevronLeft, Users, BarChart3, Settings, Building2 } from "lucide-react"
+import { ChevronLeft, Users, BarChart3, Settings, Building2, Calendar } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { title } from "process"
@@ -25,6 +25,11 @@ export function Sidebar({ className }: SidebarProps) {
       title: "Analytics",
       icon: BarChart3,
       href: "/dashboard/analytics",
+    },
+    {
+      title: "Calendar",
+      icon: Calendar,
+      href: "/dashboard/calendar",
     },
       { icon: Settings, title: "Settings", href: "/dashboard/settings" },
   { icon: Building2, title: "Company Profile", href: "/dashboard/company" },
