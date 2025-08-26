@@ -4,7 +4,7 @@ export async function GET(req: NextRequest) {
   const companyId = req.headers.get("X-Company-ID");
   const token = req.headers.get("Authorization") || "";
 
-  const res = await fetch(`${process.env.BACKEND_URL}/get_requested_leaves/1`, {
+  const res = await fetch(`${process.env.API_URL}/get_requested_leaves/1`, {
     headers: {
       Authorization: token,
       "X-Company-ID": companyId || "",
