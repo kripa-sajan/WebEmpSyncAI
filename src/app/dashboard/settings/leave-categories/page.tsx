@@ -19,7 +19,7 @@ export default function LeavePage() {
   }, []);
 
   const fetchRequests = () => {
-    fetch("/api/leave/requests", { headers: { Authorization: `Bearer ${token}`, "X-Company-ID": "7" } })
+    fetch("/api/leave/requests", { headers: { Authorization: `Bearer ${token}`, "X-Company-ID": "8" } })
       .then((res) => res.json())
       .then((data) => setRequests(data.data || []));
   };
@@ -61,69 +61,119 @@ export default function LeavePage() {
         </button>
       </div>
 
-      {/* Apply Leave Form (Toggles) */}
-      {showForm && (
-        <form onSubmit={handleApply} className="border p-4 rounded shadow w-full md:w-1/2">
-          <h2 className="text-lg font-bold mb-2">Apply Leave</h2>
-          <label>From Date</label>
-          <input type="date" name="from_date" onChange={handleChange} required className="block w-full border p-2 rounded mb-2" />
-          <label>To Date</label>
-          <input type="date" name="to_date" onChange={handleChange} required className="block w-full border p-2 rounded mb-2" />
-          <label>Leave Type</label>
-          <select name="leave_id" onChange={handleChange} required className="block w-full border p-2 rounded mb-2">
-            <option value="">Select Leave Type</option>
-            {leaveTypes.map((lt: any) => (
-              <option key={lt.id} value={lt.id}>{lt.leave_type}</option>
-            ))}
-          </select>
-          <label>Reason</label>
-          <textarea name="custom_reason" onChange={handleChange} className="block w-full border p-2 rounded mb-2" />
-          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">Submit</button>
-          {message && <p className="mt-2 text-sm">{message}</p>}
-        </form>
-      )}
+     {/* Apply Leave Form (Toggles) */}
+{showForm && (
+  <form onSubmit={handleApply} className="border p-4 rounded shadow w-full md:w-1/2">
+    <h2 className="text-lg font-bold mb-2">Apply Leave</h2>
+
+    {/* <label>From Date</label>
+    <input
+      type="date"
+      name="from_date"
+      onChange={handleChange}
+      required
+      className="block w-full border p-2 rounded mb-2"
+    />
+
+    <label>To Date</label>
+    <input
+      type="date"
+      name="to_date"
+      onChange={handleChange}
+      required
+      className="block w-full border p-2 rounded mb-2"
+    />
+
+    <label>Reason</label>
+    <textarea
+      name="custom_reason"
+      onChange={handleChange}
+      className="block w-full border p-2 rounded mb-2"
+    /> */}
+    <label htmlFor="from_date">From Date</label>
+<input
+  id="from_date"
+  type="date"
+  name="from_date"
+  onChange={handleChange}
+  required
+  className="block w-full border p-2 rounded mb-2"
+/>
+
+<label htmlFor="to_date">To Date</label>
+<input
+  id="to_date"
+  type="date"
+  name="to_date"
+  onChange={handleChange}
+  required
+  className="block w-full border p-2 rounded mb-2"
+/>
+
+<label htmlFor="custom_reason">Reason</label>
+<textarea
+  id="custom_reason"
+  name="custom_reason"
+  onChange={handleChange}
+  className="block w-full border p-2 rounded mb-2"
+/>
+
+
+    <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
+      Submit
+    </button>
+
+    {message && <p className="mt-2 text-sm">{message}</p>}
+  </form>
+)}
 
       {/* Leave Requests Table */}
-      <div>
-        <h2 className="text-xl font-bold mb-2">Leave Requests</h2>
-        <table className="w-full border">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>From</th>
-              <th>To</th>
-              <th>Reason</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requests.map((req: any) => (
-              <tr key={req.id}>
-                <td>{req.user?.first_name}</td>
-                <td>{req.from_date}</td>
-                <td>{req.to_date}</td>
-                <td>{req.custom_reason}</td>
-                <td>{req.status}</td>
-                <td>
-                  <button
-                    onClick={() => updateStatus(req.id, "A")}
-                    className="bg-green-500 text-white px-2 py-1 rounded mr-2"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => updateStatus(req.id, "R")}
-                    className="bg-red-500 text-white px-2 py-1 rounded"
-                  >
-                    Reject
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+<div>
+  <h2 className="text-xl font-bold mb-2">Leave Requests</h2>
+
+  {requests.length > 0 ? (
+    <table className="w-full border">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Reason</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {requests.map((req: any) => (
+          <tr key={req.id}>
+            <td>{req.user?.first_name}</td>
+            <td>{req.from_date}</td>
+            <td>{req.to_date}</td>
+            <td>{req.custom_reason}</td>
+            <td>{req.status}</td>
+            <td>
+              <button
+                onClick={() => updateStatus(req.id, "A")}
+                className="bg-green-500 text-white px-2 py-1 rounded mr-2"
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => updateStatus(req.id, "R")}
+                className="bg-red-500 text-white px-2 py-1 rounded"
+              >
+                Reject
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <p className="text-gray-500 text-center py-4">No leave requests found</p>
+  )}
+</div>
     </div>
   );
 }
+

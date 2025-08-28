@@ -1,37 +1,111 @@
-import { NextRequest, NextResponse } from "next/server";
+// app/api/report/punch/route.ts
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-export async function GET(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const start_date = searchParams.get("start_date") || "";
-    const end_date = searchParams.get("end_date") || "";
+    const body = await req.json();
+    const { start_date, end_date } = body;
 
-    // Build URL without company_id
-    const apiUrl = `http://127.0.0.1:8000/api/punchreport?download=pdf&start_date=${start_date}&end_date=${end_date}`;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
-    // Fetch PDF from Django API with proper Authorization
-    const response = await fetch(apiUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${process.env.API_TOKEN || ""}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Failed to download PDF: ${errText}`);
+    if (!token) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const pdfBuffer = await response.arrayBuffer();
-
-    return new NextResponse(pdfBuffer, {
+    const res = await fetch(`${process.env.API_URL}/punchreport`, {
+      method: "POST",
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": "attachment; filename=punch_report.pdf",
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        company_id: 7,
+        from_date: start_date,
+        to_date: end_date,
+      }),
     });
-  } catch (err: any) {
-    console.error("PDF Download Error:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+
+    const text = await res.text(); // first read as text
+    let data;
+
+    try {
+      data = JSON.parse(text); // try parsing JSON
+    } catch {
+      console.error("Invalid JSON from backend:", text);
+      return NextResponse.json({ success: false, message: "Invalid response from backend" }, { status: 500 });
+    }
+
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    console.error("Error in /punchreport:", err);
+    return NextResponse.json({ success: false, message: "Server Error" }, { status: 500 });
   }
 }
+
+/*import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+
+export async function POST(req: Request) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+
+    if (!token) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+
+    const res = await fetch(`${process.env.API_URL}/api/punchreport`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) return NextResponse.json(data, { status: res.status });
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (err) {
+    console.error("Error in /api/report/punch:", err);
+    return NextResponse.json({ success: false, message: "Server Error" }, { status: 500 });
+  }
+}
+*/
+/*import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { company_id, from_date, to_date } = body;
+
+    // Validate input
+    if (!company_id || !from_date || !to_date) {
+      return NextResponse.json(
+        { success: false, message: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Example data (replace with DB fetch or Django API call)
+    const reportData = [
+      { user: "John Doe", date: from_date, time_in: "09:00", time_out: "17:00" },
+      { user: "Jane Smith", date: to_date, time_in: "10:00", time_out: "18:00" },
+    ];
+
+    return NextResponse.json({ success: true, data: reportData });
+  } catch (error) {
+    console.error("API Error:", error);
+    return NextResponse.json(
+      { success: false, message: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}*/

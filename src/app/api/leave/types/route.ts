@@ -1,89 +1,167 @@
-import { NextRequest, NextResponse } from "next/server";
+// app/api/leave/route.ts
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-const API_BASE_URL = process.env.API_URL; // Django backend base URL
+// ✅ GET /api/leave
+export async function GET() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
-export async function GET(req: NextRequest) {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  const companyId = req.headers.get("x-company-id");
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-  if (!token) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  if (!companyId) return NextResponse.json({ success: false, message: "Missing X-Company-ID header" }, { status: 400 });
+    const res = await fetch(`${process.env.API_URL}/leave-types`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "X-Company-ID": "7", // matches Thunder Client
+      },
+    });
 
-  const res = await fetch(`${API_BASE_URL}/get_leave_types/`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "X-Company-ID": companyId,
-    },
-  });
+    const data = await res.json();
 
-  if (!res.ok) return NextResponse.json({ success: false, message: "Failed to fetch leave types" }, { status: res.status });
+    if (!res.ok) {
+      return NextResponse.json(data, { status: res.status });
+    }
 
-  const data = await res.json();
-  return NextResponse.json(data);
+    return NextResponse.json(data, { status: 200 });
+  } catch (err) {
+    console.error("Error proxying GET /leave-types:", err);
+    return NextResponse.json(
+      { success: false, message: "Failed to fetch leave types" },
+      { status: 500 }
+    );
+  }
 }
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  const companyId = req.headers.get("x-company-id");
+// ✅ POST /api/leave
+export async function POST(req: Request) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
-  if (!token) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  if (!companyId) return NextResponse.json({ success: false, message: "Missing X-Company-ID header" }, { status: 400 });
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-  const res = await fetch(`${API_BASE_URL}/get_leave_types/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Company-ID": companyId,
-    },
-    body: JSON.stringify(body),
-  });
+    const body = await req.json();
 
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+    const res = await fetch(`${process.env.API_URL}/leave-types`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Company-ID": "7",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return NextResponse.json(data, { status: res.status });
+    }
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (err) {
+    console.error("Error proxying POST /leave-types:", err);
+    return NextResponse.json(
+      { success: false, message: "Failed to create leave type" },
+      { status: 500 }
+    );
+  }
 }
 
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  const companyId = req.headers.get("x-company-id");
+// ✅ PUT /api/leave
+export async function PUT(req: Request) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
-  if (!token) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  if (!companyId) return NextResponse.json({ success: false, message: "Missing X-Company-ID header" }, { status: 400 });
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-  const res = await fetch(`${API_BASE_URL}/get_leave_types/`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Company-ID": companyId,
-    },
-    body: JSON.stringify(body),
-  });
+    const body = await req.json();
 
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+    const res = await fetch(`${process.env.API_URL}/leave-types`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Company-ID": "7",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return NextResponse.json(data, { status: res.status });
+    }
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (err) {
+    console.error("Error proxying PUT /leave-types:", err);
+    return NextResponse.json(
+      { success: false, message: "Failed to update leave type" },
+      { status: 500 }
+    );
+  }
 }
 
-export async function DELETE(req: NextRequest) {
-  const body = await req.json();
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  const companyId = req.headers.get("x-company-id");
+// ✅ DELETE /api/leave
+export async function DELETE(req: Request) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
 
-  if (!token) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  if (!companyId) return NextResponse.json({ success: false, message: "Missing X-Company-ID header" }, { status: 400 });
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-  const res = await fetch(`${API_BASE_URL}/get_leave_types/`, {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Company-ID": companyId,
-    },
-    body: JSON.stringify(body),
-  });
+    const body = await req.json();
 
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+    const res = await fetch(`${process.env.API_URL}/leave-types`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Company-ID": "7",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return NextResponse.json(data, { status: res.status });
+    }
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (err) {
+    console.error("Error proxying DELETE /leave-types:", err);
+    return NextResponse.json(
+      { success: false, message: "Failed to delete leave type" },
+      { status: 500 }
+    );
+  }
 }
