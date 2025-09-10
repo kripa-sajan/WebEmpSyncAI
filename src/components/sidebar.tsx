@@ -22,9 +22,9 @@ export function Sidebar({ className }: SidebarProps) {
       href: "/dashboard/employees",
     },
     {
-      title: "Analytics",
+      title: "Attendance",
       icon: BarChart3,
-      href: "/dashboard/analytics",
+      href: "/dashboard/attendance",
     },
     {
       title: "Calendar",

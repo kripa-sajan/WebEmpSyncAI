@@ -33,7 +33,7 @@ export default function SettingsPage() {
           title: "Add Employee",
           description: "Add new team members to your organization",
           icon: UserPlus,
-          href: "/dashboard/employees/add",
+          href: "/dashboard/settings/add_employees",
         },
       ],
     },
@@ -81,7 +81,7 @@ export default function SettingsPage() {
           title: "Biometric Devices",
           description: "Configure biometric attendance systems",
           icon: Fingerprint,
-          href: "/dashboard/settings/biometric-devices",
+          href: "/dashboard/settings/biometric-device",
         },
         {
           title: "Update Location",
