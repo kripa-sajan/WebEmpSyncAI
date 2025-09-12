@@ -235,7 +235,7 @@ export default function LeavePage() {
   );
 }
 */
-"use client";
+/*"use client";
 import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -456,7 +456,7 @@ export default function LeavePage() {
 
   return (
     <div className="p-4 space-y-6 max-w-6xl mx-auto">
-      {/* Header */}
+      {/* Header }
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Leave Management</h1>
         <button
@@ -467,7 +467,7 @@ export default function LeavePage() {
         </button>
       </div>
 
-      {/* Messages */}
+      {/* Messages }
       {message && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
           {message}
@@ -478,13 +478,395 @@ export default function LeavePage() {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
         </div>
-      )}
+      )}*/
+"use client";
+import { useEffect, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { format } from "date-fns";
+
+interface LeaveType {
+  id: number;
+  leave_type?: string;
+  short_name?: string;
+  monthly_limit?: number;
+  yearly_limit?: number;
+  initial_credit?: number;
+  use_credit?: boolean;
+}
+
+interface LeaveRequest {
+  id: number;
+  user?: {
+    first_name: string;
+    last_name?: string;
+  };
+  from_date: string;
+  to_date: string;
+  custom_reason?: string;
+  status: string;
+  leave_type?: {
+    name: string;
+  };
+}
+
+export default function LeavePage() {
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [formData, setFormData] = useState({
+    from_date: "",
+    to_date: "",
+    leave_id: "",
+    custom_reason: "",
+    leave_choice: "full_day",
+  });
+
+  const [newType, setNewType] = useState({
+    leave_type: "",
+    short_name: "",
+    monthly_limit: 0,
+    yearly_limit: 0,
+    initial_credit: 0,
+    use_credit: false,
+  });
+
+  const [message, setMessage] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const getToken = () => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("token") || localStorage.getItem("access_token");
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    fetchLeaveTypes();
+    fetchRequests();
+  }, []);
+
+  // ----------- LEAVE TYPE CRUD ----------------
+  const fetchLeaveTypes = async () => {
+    try {
+      const res = await fetch("/api/leave/types");
+      if (!res.ok) throw new Error("Failed to fetch leave types");
+      const data = await res.json();
+      setLeaveTypes(data.data || []);
+    } catch {
+      setError("Failed to load leave types");
+    }
+  };
+
+  const addLeaveType = async () => {
+    try {
+      const res = await fetch("/api/leave/types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newType),
+      });
+      if (!res.ok) throw new Error("Failed to add leave type");
+      await fetchLeaveTypes();
+      setNewType({
+        leave_type: "",
+        short_name: "",
+        monthly_limit: "",
+        yearly_limit: "",
+        initial_credit: "",
+        use_credit: false,
+      });
+      setMessage("Leave type added successfully");
+    } catch {
+      setError("Failed to add leave type");
+    }
+  };
+
+  const updateLeaveType = async (id: number, name: string) => {
+    try {
+      const res = await fetch("/api/leave/types", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, leave_type: name }),
+      });
+      if (!res.ok) throw new Error("Failed to update leave type");
+      await fetchLeaveTypes();
+      setMessage("Leave type updated successfully");
+    } catch {
+      setError("Failed to update leave type");
+    }
+  };
+
+  const deleteLeaveType = async (id: number) => {
+    try {
+      const res = await fetch("/api/leave/types", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error("Failed to delete leave type");
+      await fetchLeaveTypes();
+      setMessage("Leave type deleted successfully");
+    } catch {
+      setError("Failed to delete leave type");
+    }
+  };
+
+  // ----------- LEAVE REQUESTS ----------------
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch("/api/leave/requests");
+      if (!res.ok) throw new Error("Failed to fetch leave requests");
+      const data = await res.json();
+      setRequests(data.data || []);
+    } catch {
+      setError("Failed to load leave requests");
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<any>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const formatDateForDisplay = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return format(date, "dd-MMM-yyyy");
+  };
+
+  const convertDateForApi = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toISOString().split("T")[0];
+  };
+
+  // ✅ FIXED: handleApply properly defined
+  const handleApply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+    setError("");
+    try {
+      const payload = {
+        from_date: convertDateForApi(formData.from_date),
+        to_date: convertDateForApi(formData.to_date),
+        leave_id: parseInt(formData.leave_id),
+        leave_choice: formData.leave_choice,
+        custom_reason: formData.custom_reason,
+      };
+
+      const res = await fetch("/api/leave/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setMessage("Leave application submitted successfully!");
+        setFormData({
+          from_date: "",
+          to_date: "",
+          leave_id: "",
+          custom_reason: "",
+          leave_choice: "full_day",
+        });
+        setShowForm(false);
+        fetchRequests();
+      } else {
+        setError(data.message || "Failed to submit leave application");
+      }
+    } catch {
+      setError("Failed to submit leave application");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStatus = async (id: number, status: string) => {
+    try {
+      setMessage("");
+      setError("");
+      const token = getToken();
+      if (!token) {
+        setError("Unauthorized");
+        return;
+      }
+      const response = await fetch("/api/leave/status", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // ✅ fixed backticks
+        },
+        body: JSON.stringify({ id, status }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setMessage(
+          `Leave ${status === "A" ? "approved" : "rejected"} successfully`
+        );
+        fetchRequests();
+      } else {
+        setError(data.message || "Failed to update leave status");
+      }
+    } catch (err) {
+      console.error("Error updating leave status:", err);
+      setError("Failed to update leave status");
+    }
+  };
+
+    const getStatusDisplay = (status: string) => {
+      switch (status?.toUpperCase()) {
+        case "A":
+          return <span className="text-green-600 font-semibold">Approved</span>;
+        case "R":
+          return <span className="text-red-600 font-semibold">Rejected</span>;
+        case "C":
+          return <span className="text-gray-500 font-semibold">Cancelled</span>;
+        case "P":
+          return <span className="text-yellow-600 font-semibold">Pending</span>;
+        default:
+          return <span className="text-gray-600 font-semibold">{status}</span>;
+      }
+    };
+
+
+  // --- UI ---
+  return (
+   <div className="p-4 space-y-8 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold">Leave Management</h1>
+
+      {/* Leave Type Management */}
+      <div className="bg-white border rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-bold mb-4">Manage Leave Types</h2>
+
+        {/* 🔹 updated form UI */}
+        {/* 🔹 updated form UI with descriptive labels */}
+<div className="space-y-2 mb-4">
+  <input
+    type="text"
+    value={newType.leave_type}
+    onChange={(e) => setNewType({ ...newType, leave_type: e.target.value })}
+    placeholder="Leave Type (e.g., Sick Leave, Casual Leave)"
+    className="border px-3 py-2 rounded w-full"
+  />
+  <input
+    type="text"
+    value={newType.short_name}
+    onChange={(e) => setNewType({ ...newType, short_name: e.target.value })}
+    placeholder="Short Name (e.g., SL, CL)"
+    className="border px-3 py-2 rounded w-full"
+  />
+  <input
+    type="number"
+    value={newType.monthly_limit}
+    onChange={(e) =>
+      setNewType({ ...newType, monthly_limit: e.target.value })
+    }
+    placeholder="Enter maximum leaves allowed per month"
+    className="border px-3 py-2 rounded w-full"
+  />
+  <input
+    type="number"
+    value={newType.yearly_limit}
+    onChange={(e) =>
+      setNewType({ ...newType, yearly_limit: e.target.value })
+    }
+    placeholder="Enter maximum leaves allowed per year"
+    className="border px-3 py-2 rounded w-full"
+  />
+  <input
+    type="number"
+    value={newType.initial_credit}
+    onChange={(e) =>
+      setNewType({ ...newType, initial_credit: e.target.value })
+    }
+    placeholder="Enter starting leave balance"
+    className="border px-3 py-2 rounded w-full"
+  />
+  <label className="flex items-center space-x-2">
+    <input
+      type="checkbox"
+      checked={newType.use_credit}
+      onChange={(e) =>
+        setNewType({ ...newType, use_credit: e.target.checked })
+      }
+    />
+    <span>Can use leave credit</span>
+  </label>
+
+  <button
+    onClick={addLeaveType}
+    className="bg-blue-600 text-white px-4 py-2 rounded"
+  >
+    Add
+  </button>
+</div>
+
+
+        {/* Leave Type Table (unchanged except using leave_type field) */}
+        <table className="w-full border">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2 text-left">ID</th>
+              <th className="px-4 py-2 text-left">Leave Type</th>
+              <th className="px-4 py-2 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leaveTypes.map((lt) => (
+              <tr key={lt.id} className="border-t">
+                <td className="px-4 py-2">{lt.id}</td>
+                <td className="px-4 py-2">{lt.leave_type}</td>
+                <td className="px-4 py-2 text-center space-x-2">
+                  <button
+                    onClick={() =>
+                      updateLeaveType(lt.id, prompt("Edit leave type", lt.leave_type || "") || "")
+                    }
+                    className="bg-yellow-500 text-white px-3 py-1 rounded text-xs"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => deleteLeaveType(lt.id)}
+                    className="bg-red-500 text-white px-3 py-1 rounded text-xs"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {leaveTypes.length === 0 && (
+              <tr>
+                <td colSpan={3} className="text-center py-3 text-gray-500">
+                  No leave types found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      
 
       {/* Apply Leave Form */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-800">Leave Management</h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+        >
+          {showForm ? "Close Form" : "Apply Leave"}
+        </button>
+      </div>
       {showForm && (
         <div className="bg-white border rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Apply for Leave</h2>
-          
+          <h2 className="text-xl font-bold mb-4 text-gray-800">
+            Apply for Leave
+          </h2>
+
           <form onSubmit={handleApply} className="space-y-4">
             {/* Leave Type */}
             <div>
@@ -645,6 +1027,7 @@ export default function LeavePage() {
                       {getStatusDisplay(req.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    {req.status.toUpperCase() === "P" ? (
                       <div className="flex justify-center space-x-2">
                         <button
                           onClick={() => updateStatus(req.id, "A")}
@@ -661,7 +1044,11 @@ export default function LeavePage() {
                           ❌
                         </button>
                       </div>
-                    </td>
+                    ) : (
+                      <span className="text-gray-500">No actions</span>
+                    )}
+                  </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -676,3 +1063,4 @@ export default function LeavePage() {
     </div>
   );
 }
+

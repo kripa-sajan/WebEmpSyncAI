@@ -93,7 +93,8 @@ export async function GET() {
       name: c.name || c.company_name || "Unnamed Company",
     }));
 
-    return NextResponse.json(normalizedCompanies, { status: 200 });
+    return NextResponse.json({ success: true, data: normalizedCompanies }, { status: 200 });
+
   } catch (err) {
     console.error("Error proxying /user-companies:", err);
     return NextResponse.json(

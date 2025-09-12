@@ -75,7 +75,7 @@ export default function SettingsPage() {
           title: "Virtual Devices",
           description: "Manage virtual attendance devices",
           icon: Smartphone,
-          href: "/dashboard/settings/virtual-devices",
+          href: "/dashboard/settings/virtual-device",
         },
         {
           title: "Biometric Devices",

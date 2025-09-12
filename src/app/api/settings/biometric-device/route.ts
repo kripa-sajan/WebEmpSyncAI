@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-export async function PUT(req: Request) {
+// ✅ Add biometric device
+export async function POST(req: Request) {
   try {
+    // ✅ Await cookies
     const cookieStore = await cookies();
     const token = cookieStore.get("access_token")?.value;
-    const companyId = cookieStore.get("company_id")?.value;
+    const companyId = cookieStore.get("company_id")?.value || "7";
 
     if (!token) {
       return NextResponse.json(
@@ -16,32 +18,28 @@ export async function PUT(req: Request) {
 
     const body = await req.json();
 
-    if (!body.id || !body.status) {
-      return NextResponse.json(
-        { success: false, message: "Missing leave id or status" },
-        { status: 400 }
-      );
-    }
+    // ✅ Ensure company_id is included as per backend requirement
+    const payload = { ...body, company_id: companyId };
 
-    console.log("Updating leave status:", body);
+    const apiUrl = `${process.env.API_URL}/add-biometric-device`;
 
-    const res = await fetch(`${process.env.API_URL}/leave/update-leave`, {
-      method: "PUT",
+    const res = await fetch(apiUrl, {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        Accept: "application/json",
         "Content-Type": "application/json",
-        "X-Company-ID": companyId || "7", // Added
+        Accept: "application/json",
+        "X-Company-ID": companyId, // keeps header consistent
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
 
-    let data;
     const text = await res.text();
+    let data;
     try {
       data = JSON.parse(text);
     } catch {
-      console.error("Non-JSON response from Django:", text);
+      console.error("Non-JSON response from backend:", text);
       return NextResponse.json(
         { success: false, message: text || "Unexpected error from backend" },
         { status: res.status }
@@ -49,10 +47,10 @@ export async function PUT(req: Request) {
     }
 
     return NextResponse.json(data, { status: res.status });
-  } catch (err: any) {
-    console.error("Error proxying /leave/update-leave:", err);
+  } catch (err) {
+    console.error("Error creating biometric device:", err);
     return NextResponse.json(
-      { success: false, message: err.message || "Failed to update leave status" },
+      { success: false, message: "Failed to create device" },
       { status: 500 }
     );
   }

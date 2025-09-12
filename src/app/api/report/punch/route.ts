@@ -109,7 +109,7 @@ export async function POST(req: Request) {
     );
   }
 }*/
-// app/api/report/punch/route.ts
+/*// app/api/report/punch/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
@@ -150,6 +150,86 @@ export async function POST(req: Request) {
         company_id,
         from_date,
         to_date,
+      }),
+    });
+
+    // read and return response
+    const text = await res.text();
+    let data;
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error("Invalid JSON from backend:", text);
+      return NextResponse.json(
+        { success: false, message: "Invalid response from backend" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    console.error("Error in /report/punch:", err);
+    return NextResponse.json(
+      { success: false, message: "Server Error" },
+      { status: 500 }
+    );
+  }
+}
+*/
+// app/api/report/punch/route.ts
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+
+// ✅ Helper: format to YYYY-MM-DD
+function formatToIsoDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) {
+    throw new Error(`Invalid date: ${dateStr}`);
+  }
+  return d.toISOString().split("T")[0]; // YYYY-MM-DD
+}
+
+export async function POST(req: Request) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("access_token")?.value;
+    const companyId = cookieStore.get("company_id")?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Parse request body
+    const body = await req.json();
+    const { company_id, from_date, to_date } = body;
+
+    if (!company_id || !from_date || !to_date) {
+      return NextResponse.json(
+        { success: false, message: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Normalize dates to YYYY-MM-DD
+    const formattedFrom = formatToIsoDate(from_date);
+    const formattedTo = formatToIsoDate(to_date);
+
+    // Call Django API
+    const res = await fetch(`${process.env.API_URL}/punchreport`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        company_id,
+        from_date: formattedFrom,
+        to_date: formattedTo,
       }),
     });
 

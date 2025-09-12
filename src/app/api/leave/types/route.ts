@@ -209,6 +209,7 @@ export async function GET() {
 }
 
 // POST /api/leave/types
+// POST /api/leave/types
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
@@ -224,6 +225,16 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
+    // ✅ Ensure required fields are passed
+    const leaveTypePayload = {
+      leave_type: body.leave_type,
+      short_name: body.short_name,
+      monthly_limit: body.monthly_limit || 0,
+      yearly_limit: body.yearly_limit || 0,
+      initial_credit: body.initial_credit || 0,
+      use_credit: body.use_credit || false,
+    };
+
     const res = await fetch(`${process.env.API_URL}/leave-types`, {
       method: "POST",
       headers: {
@@ -232,7 +243,7 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
         "X-Company-ID": companyId || "7",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(leaveTypePayload),
     });
 
     if (!res.ok) {
