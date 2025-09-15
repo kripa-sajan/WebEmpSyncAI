@@ -72,10 +72,12 @@ useEffect(() => {
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext"; // 👈 import here
 
 export function SwitchCompanyButton() {
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [selectedCompany, setSelectedCompany] = useState("");
+  const { switchCompany } = useAuth(); // 👈 get switchCompany from context
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -83,14 +85,13 @@ export function SwitchCompanyButton() {
         const res = await fetch("/api/companies", { method: "GET" });
         const data = await res.json();
 
-        console.log("🔍 /api/companies response:", data);
-
-        // Expecting data to be like { success: true, data: [ { id, name }, ... ] }
         if (Array.isArray(data?.data)) {
-          setCompanies(data.data.map((c: any) => ({
-            id: c.id?.toString() || c.company_id?.toString(),
-            name: c.name || c.company_name || "Unnamed Company",
-          })));
+          setCompanies(
+            data.data.map((c: any) => ({
+              id: c.id?.toString() || c.company_id?.toString(),
+              name: c.name || c.company_name || "Unnamed Company",
+            }))
+          );
         } else {
           console.error("Unexpected companies response:", data);
           setCompanies([]);
@@ -106,8 +107,28 @@ export function SwitchCompanyButton() {
 
   const handleSwitch = () => {
     if (!selectedCompany) return;
-    console.log("Switching to company:", selectedCompany);
-    // TODO: save selected company in context/localStorage and reload dashboard data
+
+    // find selected company object
+    const companyObj = companies.find((c) => c.id === selectedCompany);
+    if (!companyObj) return;
+
+    // ✅ call context method to update
+    switchCompany({
+      id: Number(companyObj.id),
+      company_name: companyObj.name,
+      company_img: "",
+      latitude: 0,
+      longitude: 0,
+      perimeter: 0,
+      travel_speed_threshold: 0,
+      daily_working_hours: 0,
+      work_summary_interval: "",
+      punch_mode: "",
+      is_admin: false,
+    });
+
+    // Optional: force reload if you want backend sync
+    window.location.reload();
   };
 
   return (

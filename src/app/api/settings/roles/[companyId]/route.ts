@@ -32,8 +32,9 @@ export async function GET(
     }
 
     const data = await res.json();
-    // console.log("data", data.data);
-    return NextResponse.json(data);
+const rolesArray = data.data || data || [];
+return NextResponse.json(rolesArray);
+
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

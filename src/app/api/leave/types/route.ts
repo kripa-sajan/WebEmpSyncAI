@@ -184,13 +184,13 @@ export async function GET() {
     }
 
     const res = await fetch(`${process.env.API_URL}/leave-types`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-        "X-Company-ID": companyId || "7",
-      },
-    });
+  method: "GET",
+  headers: {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/json",
+    "X-Company-ID": companyId || "",   // ✅ dynamic companyId
+  },
+});
 
     if (!res.ok) {
       const errorData = await res.json();
@@ -241,7 +241,7 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
         "Content-Type": "application/json",
-        "X-Company-ID": companyId || "7",
+        "X-Company-ID": companyId || "",
       },
       body: JSON.stringify(leaveTypePayload),
     });
@@ -284,7 +284,7 @@ export async function PUT(req: Request) {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
         "Content-Type": "application/json",
-        "X-Company-ID": companyId || "7",
+        "X-Company-ID": companyId || "",
       },
       body: JSON.stringify(body),
     });
@@ -327,7 +327,7 @@ export async function DELETE(req: Request) {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
         "Content-Type": "application/json",
-        "X-Company-ID": companyId || "7",
+        "X-Company-ID": companyId || "",
       },
       body: JSON.stringify(body),
     });

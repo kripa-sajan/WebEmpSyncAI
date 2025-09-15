@@ -1,46 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; 
+import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { useAuth } from "@/context/AuthContext";
+
+interface DailyLog {
+  date: string;
+  check_ins: string[];
+  check_outs: string[];
+  working_hours: number;
+}
+
+interface UserRecord {
+  name: string;
+  daily_logs: DailyLog[];
+}
 
 export default function ReportPage() {
-  const [data, setData] = useState<any[]>([]);
+  const { company } = useAuth(); // ✅ get selected company
+  const [data, setData] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<{ start_date: Date | null; end_date: Date | null }>({
     start_date: null,
     end_date: null,
   });
 
-  // ✅ Utility: format date to dd-MMM-yyyy
   const formatDate = (date: Date | string | null) => {
     if (!date) return "";
     try {
-      return format(new Date(date), "dd-MMM-yyyy");
+      return format(new Date(date), "yyyy-MM-dd");
     } catch {
       return String(date);
     }
   };
 
-  // Fetch Punch Report (POST)
+  // Fetch Punch Report
   const fetchReport = async () => {
     if (!filters.start_date || !filters.end_date) {
-      alert("Please select both From Date and To Date");
+      alert("Please select From Date and To Date");
       return;
     }
 
+    if (!company) {
+      alert("No company selected");
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
       const res = await fetch("/api/report/punch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          company_id: 7,
           from_date: formatDate(filters.start_date),
           to_date: formatDate(filters.end_date),
+          company_id: company.id, // ✅ send selected company
         }),
       });
 
@@ -49,25 +67,30 @@ export default function ReportPage() {
       const result = await res.json();
       setData(result.records || []);
     } catch (err) {
-      console.error("Fetch Report Error:", err);
+      console.error(err);
       setData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Download PDF Function
+  // Automatically fetch report whenever company changes
+  useEffect(() => {
+    if (company && filters.start_date && filters.end_date) {
+      fetchReport();
+    }
+  }, [company]);
+
+  // Download PDF
   const downloadPDF = () => {
-    if (!data || data.length === 0) {
+    if (!data.length) {
       alert("No data to download");
       return;
     }
 
     const doc = new jsPDF();
-
     doc.setFontSize(16);
     doc.text("Punch Report", 14, 15);
-
     doc.setFontSize(12);
     doc.text(
       `From: ${formatDate(filters.start_date)}  To: ${formatDate(filters.end_date)}`,
@@ -78,10 +101,10 @@ export default function ReportPage() {
     autoTable(doc, {
       startY: 35,
       head: [["User", "Date", "Check-Ins", "Check-Outs", "Working Hours"]],
-      body: data.flatMap((user: any) =>
-        (user.daily_logs || []).map((log: any) => [
+      body: data.flatMap(user =>
+        (user.daily_logs || []).map(log => [
           user.name || "N/A",
-          formatDate(log.date) || "-",
+          log.date || "-",
           (log.check_ins || []).join(", "),
           (log.check_outs || []).join(", "),
           log.working_hours || "-",
@@ -100,22 +123,23 @@ export default function ReportPage() {
         <DatePicker
           selected={filters.start_date}
           onChange={(date) => setFilters({ ...filters, start_date: date })}
-          dateFormat="dd-MMM-yyyy"
+          dateFormat="yyyy-MM-dd"
           placeholderText="From Date"
           className="border p-2 rounded"
         />
         <DatePicker
           selected={filters.end_date}
           onChange={(date) => setFilters({ ...filters, end_date: date })}
-          dateFormat="dd-MMM-yyyy"
+          dateFormat="yyyy-MM-dd"
           placeholderText="To Date"
           className="border p-2 rounded"
         />
         <button
           onClick={fetchReport}
           className="bg-blue-500 text-white px-4 py-2 rounded"
+          disabled={loading}
         >
-          Fetch Report
+          {loading ? "Fetching..." : "Fetch Report"}
         </button>
         <button
           onClick={downloadPDF}
@@ -126,36 +150,37 @@ export default function ReportPage() {
         </button>
       </div>
 
-      {loading && <p>Loading...</p>}
       {!loading && data.length === 0 && (
         <p className="text-gray-500">No records found</p>
       )}
 
       {data.length > 0 && (
-        <table className="border-collapse border border-gray-400 w-full">
-          <thead>
-            <tr>
-              <th className="border p-2">User</th>
-              <th className="border p-2">Date</th>
-              <th className="border p-2">Check-Ins</th>
-              <th className="border p-2">Check-Outs</th>
-              <th className="border p-2">Working Hours</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.flatMap((user, idx) =>
-              user.daily_logs.map((log: any, logIdx: number) => (
-                <tr key={`${idx}-${logIdx}`}>
-                  <td className="border p-2">{user.name}</td>
-                  <td className="border p-2">{formatDate(log.date)}</td>
-                  <td className="border p-2">{log.check_ins.join(", ")}</td>
-                  <td className="border p-2">{log.check_outs.join(", ")}</td>
-                  <td className="border p-2">{log.working_hours}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <div className="overflow-auto max-h-[60vh] border">
+          <table className="border-collapse border border-gray-400 w-full min-w-[700px]">
+            <thead>
+              <tr>
+                <th className="border p-2">User</th>
+                <th className="border p-2">Date</th>
+                <th className="border p-2">Check-Ins</th>
+                <th className="border p-2">Check-Outs</th>
+                <th className="border p-2">Working Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.flatMap((user, idx) =>
+                user.daily_logs.map((log, logIdx) => (
+                  <tr key={`${idx}-${logIdx}`}>
+                    <td className="border p-2">{user.name}</td>
+                    <td className="border p-2">{log.date}</td>
+                    <td className="border p-2">{(log.check_ins || []).join(", ")}</td>
+                    <td className="border p-2">{(log.check_outs || []).join(", ")}</td>
+                    <td className="border p-2">{log.working_hours || "-"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

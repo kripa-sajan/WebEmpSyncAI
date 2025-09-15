@@ -9,8 +9,11 @@ export async function POST(req: Request) {
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
-    const { company_id } = await req.json();
+
+    // ✅ Safe parse body, fallback to cookie if empty
+    const body = await req.json().catch(() => ({}));
+    const company_id = body.company_id || cookieStore.get("company_id")?.value;
+
     if (!company_id) {
       return NextResponse.json({ error: "Missing company_id" }, { status: 400 });
     }
@@ -33,7 +36,6 @@ export async function POST(req: Request) {
 
       if (!res.ok) {
         console.error(`Failed to fetch page ${page}. Status: ${res.status}`);
-        // Stop and return what we have, or handle error differently
         break;
       }
 
@@ -41,13 +43,11 @@ export async function POST(req: Request) {
       const usersOnPage = responseData.data;
 
       if (!Array.isArray(usersOnPage) || usersOnPage.length === 0) {
-        // No more users, break the loop
         break;
       }
 
       allUsers.push(...usersOnPage);
 
-      // Check if we've reached the last page
       if (page >= responseData.total_page) {
         break;
       }

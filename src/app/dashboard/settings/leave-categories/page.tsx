@@ -484,6 +484,7 @@ import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format } from "date-fns";
+import { useAuth } from "@/context/AuthContext"; // ✅ import Auth context
 
 interface LeaveType {
   id: number;
@@ -497,20 +498,18 @@ interface LeaveType {
 
 interface LeaveRequest {
   id: number;
-  user?: {
-    first_name: string;
-    last_name?: string;
-  };
+  user?: { first_name: string; last_name?: string };
   from_date: string;
   to_date: string;
   custom_reason?: string;
   status: string;
-  leave_type?: {
-    name: string;
-  };
+  leave_type?: { name: string };
 }
 
 export default function LeavePage() {
+  const { company, switchCompany } = useAuth(); // ✅ get company from context
+  const companyId = company?.id; // ✅ dynamic company ID
+
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [formData, setFormData] = useState({
@@ -542,15 +541,27 @@ export default function LeavePage() {
     return null;
   };
 
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "number" ? Number(value) : value,
+    }));
+  };
+
   useEffect(() => {
+    if (!companyId) return; // wait until company is loaded
     fetchLeaveTypes();
     fetchRequests();
-  }, []);
+  }, [companyId]); // ✅ re-fetch when company changes
 
   // ----------- LEAVE TYPE CRUD ----------------
   const fetchLeaveTypes = async () => {
+    if (!companyId) return;
     try {
-      const res = await fetch("/api/leave/types");
+      const res = await fetch(`/api/leave/types`);
       if (!res.ok) throw new Error("Failed to fetch leave types");
       const data = await res.json();
       setLeaveTypes(data.data || []);
@@ -560,8 +571,9 @@ export default function LeavePage() {
   };
 
   const addLeaveType = async () => {
+    if (!companyId) return;
     try {
-      const res = await fetch("/api/leave/types", {
+      const res = await fetch(`/api/leave/types`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newType),
@@ -571,9 +583,9 @@ export default function LeavePage() {
       setNewType({
         leave_type: "",
         short_name: "",
-        monthly_limit: "",
-        yearly_limit: "",
-        initial_credit: "",
+        monthly_limit: 0,
+        yearly_limit: 0,
+        initial_credit: 0,
         use_credit: false,
       });
       setMessage("Leave type added successfully");
@@ -583,8 +595,9 @@ export default function LeavePage() {
   };
 
   const updateLeaveType = async (id: number, name: string) => {
+    if (!companyId) return;
     try {
-      const res = await fetch("/api/leave/types", {
+      const res = await fetch(`/api/leave/types`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, leave_type: name }),
@@ -598,8 +611,9 @@ export default function LeavePage() {
   };
 
   const deleteLeaveType = async (id: number) => {
+    if (!companyId) return;
     try {
-      const res = await fetch("/api/leave/types", {
+      const res = await fetch(`/api/leave/types`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
@@ -614,8 +628,9 @@ export default function LeavePage() {
 
   // ----------- LEAVE REQUESTS ----------------
   const fetchRequests = async () => {
+    if (!companyId) return;
     try {
-      const res = await fetch("/api/leave/requests");
+      const res = await fetch(`/api/leave/requests`);
       if (!res.ok) throw new Error("Failed to fetch leave requests");
       const data = await res.json();
       setRequests(data.data || []);
@@ -624,35 +639,21 @@ export default function LeavePage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<any>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const formatDateForDisplay = (dateStr: string) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    return format(date, "dd-MMM-yyyy");
-  };
-
-  const convertDateForApi = (dateStr: string) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    return date.toISOString().split("T")[0];
-  };
-
-  // ✅ FIXED: handleApply properly defined
+  // ---------------- LEAVE APPLY ----------------
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!companyId) return;
     setLoading(true);
     setMessage("");
     setError("");
     try {
       const payload = {
-        from_date: convertDateForApi(formData.from_date),
-        to_date: convertDateForApi(formData.to_date),
+        from_date: formData.from_date,
+        to_date: formData.to_date,
         leave_id: parseInt(formData.leave_id),
         leave_choice: formData.leave_choice,
         custom_reason: formData.custom_reason,
+        company_id: companyId, // ✅ send dynamic company ID
       };
 
       const res = await fetch("/api/leave/apply", {
@@ -685,6 +686,7 @@ export default function LeavePage() {
   };
 
   const updateStatus = async (id: number, status: string) => {
+    if (!companyId) return;
     try {
       setMessage("");
       setError("");
@@ -697,9 +699,9 @@ export default function LeavePage() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // ✅ fixed backticks
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ id, status }),
+        body: JSON.stringify({ id, status, company_id: companyId }),
       });
 
       const data = await response.json();
@@ -717,22 +719,19 @@ export default function LeavePage() {
       setError("Failed to update leave status");
     }
   };
-
-    const getStatusDisplay = (status: string) => {
-      switch (status?.toUpperCase()) {
-        case "A":
-          return <span className="text-green-600 font-semibold">Approved</span>;
-        case "R":
-          return <span className="text-red-600 font-semibold">Rejected</span>;
-        case "C":
-          return <span className="text-gray-500 font-semibold">Cancelled</span>;
-        case "P":
-          return <span className="text-yellow-600 font-semibold">Pending</span>;
-        default:
-          return <span className="text-gray-600 font-semibold">{status}</span>;
-      }
-    };
-
+  
+const getStatusDisplay = (status: string) => {
+  switch (status.toUpperCase()) {
+    case "P":
+      return "Pending";
+    case "A":
+      return "Approved";
+    case "R":
+      return "Rejected";
+    default:
+      return status;
+  }
+};
 
   // --- UI ---
   return (
@@ -1015,10 +1014,12 @@ export default function LeavePage() {
                       {req.user?.first_name} {req.user?.last_name || ""}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDateForDisplay(req.from_date)}
+                      {req.from_date ? format(new Date(req.from_date), "dd-MMM-yyyy") : ""}
+
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDateForDisplay(req.to_date)}
+                      {req.from_date ? format(new Date(req.to_date), "dd-MMM-yyyy") : ""}
+
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
                       {req.custom_reason || "N/A"}

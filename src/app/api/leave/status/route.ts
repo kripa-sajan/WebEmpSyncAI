@@ -31,7 +31,7 @@ export async function PUT(req: Request) {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
         "Content-Type": "application/json",
-        "X-Company-ID": companyId || "7", // Added
+        "X-Company-ID": companyId || "", // Added
       },
       body: JSON.stringify(body),
     });
