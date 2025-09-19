@@ -17,14 +17,13 @@ export async function GET() {
 
     // Call the external API with Bearer token
     const res = await fetch(`${process.env.API_URL}/admin/leave-request/1`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-        "X-Company-ID": "7",
-      },
-    });
-
+  method: "GET",
+  headers: {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/json",
+    "X-Company-ID": companyId || "",   // ✅ dynamic companyId
+  },
+});
     const data = await res.json();
 
     if (!res.ok) {

@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import "./globals.css"
 import Providers from "@/providers/query-client"
 import { AuthProvider } from "@/context/AuthContext"
+import { CompanyProvider } from "@/context/CompanyContext" // ✅ import company context
 
 export const metadata: Metadata = {
   title: "EmpSync AI - Admin Dashboard",
@@ -18,15 +19,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-       
-      </head>
+      <head></head>
       <body className="bg-background text-foreground antialiased">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <AuthProvider>
-          <Providers>
-          {children}
-          </Providers>
+            <CompanyProvider> {/* ✅ wrap children with CompanyProvider */}
+              <Providers>
+                {children}
+              </Providers>
+            </CompanyProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

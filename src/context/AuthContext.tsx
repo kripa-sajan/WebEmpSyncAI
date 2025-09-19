@@ -25,6 +25,7 @@ export type Company = {
   id: number;
   company_name: string;
   company_img: string;
+  mediaBaseUrl: string; // <-- add this
   latitude: number;
   longitude: number;
   perimeter: number;
@@ -111,7 +112,6 @@ export const useAuth = () => {
   if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };
-
 
 
 

@@ -21,11 +21,11 @@ export function Sidebar({ className }: SidebarProps) {
       icon: Users,
       href: "/dashboard/employees",
     },
-    {
+    /*{
       title: "Attendance",
       icon: BarChart3,
       href: "/dashboard/attendance",
-    },
+    },*/
     {
       title: "Calendar",
       icon: Calendar,

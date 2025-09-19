@@ -94,27 +94,27 @@ export default function AttendancePage() {
       )}
     </div>
   )
-}
-  */"use client"
+}*/
+
+"use client"
 
 import { useState } from "react"
 import { useAttendance } from "@/hooks/attendance/useAttendance"
 import { useAuth } from "@/context/AuthContext"
 
 export default function AttendancePage() {
-  const { company, user } = useAuth() // ✅ Get logged-in user & company
+  const { company, user, loading } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   // Format date as YYYY-MM-DD
   const formatDate = (date: Date) => date.toISOString().split("T")[0]
 
-  // ✅ Attendance Hook (no extra fetch for biometric_id unless required)
+  // ✅ Attendance Hook
   const { data: attendance, isLoading, isError } = useAttendance(
-    company && user
+    !loading && company && user
       ? {
           company_id: company.id,
-          user_id: user.id,
-          // Remove biometric_id if not strictly required
+          biometric_id: Number(user.biometric_id),
           start_date: formatDate(selectedDate),
           end_date: formatDate(selectedDate),
           today: false,
@@ -143,7 +143,7 @@ export default function AttendancePage() {
       </div>
 
       {/* Attendance Table */}
-      {!company || !user ? (
+      {loading ? (
         <p>Loading user/company details...</p>
       ) : isLoading ? (
         <p>Loading attendance...</p>
@@ -178,4 +178,3 @@ export default function AttendancePage() {
     </div>
   )
 }
-

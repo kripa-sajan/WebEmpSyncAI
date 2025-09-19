@@ -1,3 +1,4 @@
+
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -53,7 +54,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header Section */}
+        {/* Header Section*/}
         <div className="text-center space-y-4">
           <div className="relative inline-block">
             <Avatar className="h-32 w-32 border-4 border-border shadow-lg">
@@ -115,11 +116,11 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Main Content Grid */}
+        {/* Main Content Grid*/}
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* Left Column - Contact & Identity */}
+          {/* Left Column - Contact & Identity*/}
           <div className="space-y-6">
-            {/* Contact Information */}
+            {/* Contact Information*/}
             <Card className="shadow-lg border">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -145,7 +146,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Identity & Security */}
+            {/* Identity & Security*/}
             <Card className="shadow-lg border">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -182,9 +183,9 @@ export default function ProfilePage() {
             </Card>
           </div>
 
-          {/* Middle Column - Personal Details */}
+          {/* Middle Column - Personal Details*/}
           <div className="space-y-6">
-            {/* Personal Information */}
+            {/* Personal Information*/}
             <Card className="shadow-lg border">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -234,7 +235,7 @@ export default function ProfilePage() {
             </Card>
           </div>
 
-          {/* Right Column - Preferences & Settings */}
+          {/* Right Column - Preferences & Settings*/}
           <div className="space-y-6">
             {/* Communication Preferences */}
             <Card className="shadow-lg border">
@@ -281,7 +282,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* System Permissions */}
+            {/* System Permissions*/}
             <Card className="shadow-lg border">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">

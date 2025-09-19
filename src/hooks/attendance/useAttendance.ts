@@ -1,7 +1,7 @@
-// hooks/useAttendance.ts
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
+import { useAuth } from "@/context/AuthContext"
 
 export interface Attendance {
   date: string
@@ -10,16 +10,19 @@ export interface Attendance {
   message?: string | null
 }
 
-interface AttendanceParams {
-  company_id: number | string
-  user_id: number
-  biometric_id: number
+export interface AttendanceParams {
   start_date: string
   end_date: string
   today?: boolean
 }
 
-async function fetchAttendance(params: AttendanceParams) {
+async function fetchAttendance(params: {
+  company_id: number
+  biometric_id: number
+  start_date: string
+  end_date: string
+  today?: boolean
+}) {
   const res = await fetch("/api/attendance", {
     method: "POST",
     headers: {
@@ -29,18 +32,36 @@ async function fetchAttendance(params: AttendanceParams) {
   })
 
   if (!res.ok) {
-    throw new Error("Failed to fetch attendance")
+    const errorText = await res.text()
+    throw new Error(`Failed to fetch attendance: ${errorText}`)
   }
 
-  return res.json()
+  const data = await res.json()
+
+// ✅ Handle nested response
+if (Array.isArray(data.data)) return data.data
+if (Array.isArray(data.data?.results)) return data.data.results
+if (Array.isArray(data.results)) return data.results
+
+return []
 }
 
 export function useAttendance(params?: AttendanceParams) {
+  const { company, user, loading } = useAuth()
+
+  const enabled = !!company?.id && !!user?.biometric_id && !!params && !loading
+
   return useQuery<Attendance[]>({
-    queryKey: ["attendance", params],
-    queryFn: () => fetchAttendance(params as AttendanceParams),
-    enabled: !!params, // run only if params are passed
-    staleTime: 5 * 60 * 1000, // cache 5 mins
-    select: (data) => (Array.isArray(data.data) ? data.data : []),
+    queryKey: ["attendance", params, company?.id, user?.biometric_id],
+    queryFn: () =>
+      fetchAttendance({
+        company_id: company!.id,
+        biometric_id: Number(user!.biometric_id),
+        start_date: params!.start_date,
+        end_date: params!.end_date,
+        today: params?.today,
+      }),
+    enabled,
+    staleTime: 5 * 60 * 1000,
   })
 }

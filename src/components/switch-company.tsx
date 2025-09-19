@@ -2,50 +2,70 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext"; // 👈 import here
 
 export function SwitchCompanyButton() {
-  const [companies, setCompanies] = useState<any[]>([]); // 👈 always default to []
+  const { company, switchCompany } = useAuth(); // 👈 get company from context
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [selectedCompany, setSelectedCompany] = useState("");
 
-useEffect(() => {
-  const fetchCompanies = async () => {
-    try {
-      const res = await fetch("/api/companies", { method: "GET" });
-      const data = await res.json();
-
-      console.log("🔍 /api/companies response:", data);
-
-      // Case A: API returns array directly
-      if (Array.isArray(data)) {
-        setCompanies(data);
-
-      // Case B: API wraps inside .companies
-      } else if (Array.isArray(data?.companies)) {
-        setCompanies(
-          data.companies.map((c: any) => ({
-            id: c.id || c.company_id,
-            name: c.name || c.company_name,
-          }))
-        );
-
-      } else {
-        console.error("Unexpected companies response:", data);
-        setCompanies([]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch companies:", err);
-      setCompanies([]);
-    }
-  };
-
-  fetchCompanies();
+  // Automatically select the current company from context
+ useEffect(() => {
+  if (company) {
+    setSelectedCompany(company.id.toString());
+  }
+  // Only run on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
 
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const res = await fetch("/api/companies", { method: "GET" });
+        const data = await res.json();
+
+        if (Array.isArray(data?.data)) {
+          setCompanies(
+            data.data.map((c: any) => ({
+              id: c.id?.toString() || c.company_id?.toString(),
+              name: c.name || c.company_name || "Unnamed Company",
+            }))
+          );
+        } else {
+          console.error("Unexpected companies response:", data);
+          setCompanies([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch companies:", err);
+        setCompanies([]);
+      }
+    };
+
+    fetchCompanies();
+  }, []);
+
   const handleSwitch = () => {
     if (!selectedCompany) return;
-    console.log("Switching to company:", selectedCompany);
-    // TODO: save selected company in context/localStorage and reload data
+
+    const companyObj = companies.find((c) => c.id === selectedCompany);
+    if (!companyObj) return;
+
+    switchCompany({
+      id: Number(companyObj.id),
+      company_name: companyObj.name,
+      company_img: "",
+      latitude: 0,
+      longitude: 0,
+      perimeter: 0,
+      travel_speed_threshold: 0,
+      daily_working_hours: 0,
+      work_summary_interval: "",
+      punch_mode: "",
+      is_admin: false,
+    });
+
+    window.location.reload(); // optional
   };
 
   return (
@@ -62,12 +82,15 @@ useEffect(() => {
           </option>
         ))}
       </select>
+
       <Button onClick={handleSwitch} variant="outline">
         Switch
       </Button>
     </div>
   );
 }*/
+
+
 "use client";
 
 import { useState, useEffect } from "react";
