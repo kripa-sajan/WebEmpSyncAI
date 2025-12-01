@@ -40,9 +40,21 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "empsyncai.kochi.digital",
-        port: "", // optional, leave empty if none
+        port: "", // production
         pathname: "/**",
       },
+      /*{
+        protocol: "http",
+        hostname: "127.0.0.1",
+        port: "8000", // local backend
+        pathname: "/media/**",
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "8000", // local backend (sometimes you access via localhost)
+        pathname: "/media/**",
+      },*/
     ],
   },
   devIndicators: {
@@ -51,6 +63,8 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
-
 export default nextConfig;

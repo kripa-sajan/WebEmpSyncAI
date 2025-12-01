@@ -37,28 +37,37 @@ export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("access_token")?.value;
-    const companyId = cookieStore.get("company_id")?.value;
 
     if (!token) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { from_date, to_date, user_id } = body;
+    const { from_date, to_date, user_id, company_id } = body; // 👈 Get company_id from request body
 
-    if (!from_date || !to_date) {
-      return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
+    if (!from_date || !to_date || !company_id) { // 👈 Validate company_id
+      return NextResponse.json({ 
+        success: false, 
+        message: "Missing required fields: from_date, to_date, and company_id are required" 
+      }, { status: 400 });
     }
 
     const payload: Record<string, any> = {
-      company_id: companyId,  // 👈 take from cookie
+      company_id: company_id,  // 👈 Use company_id from request body, not cookie
       from_date: formatToIsoDate(from_date),
       to_date: formatToIsoDate(to_date),
     };
 
     if (user_id) payload.user_id = user_id;
 
+    // ✅ Debug log to verify which company_id is being used
+    console.log("Fetching punch report for company_id:", company_id);
+
     const { data, status } = await callDjangoPunchAPI(payload, token);
+    
+    // ✅ Debug log the response
+    console.log("Backend response status:", status);
+    
     return NextResponse.json(data, { status });
   } catch (err: any) {
     console.error("Error in /report/punch:", err);

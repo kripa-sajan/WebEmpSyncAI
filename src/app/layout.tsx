@@ -23,8 +23,8 @@ export default function RootLayout({
       <body className="bg-background text-foreground antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"   // 👈 force light mode
+          enableSystem={false}   // 👈 ignore system setting
           disableTransitionOnChange
         >
           <AuthProvider>

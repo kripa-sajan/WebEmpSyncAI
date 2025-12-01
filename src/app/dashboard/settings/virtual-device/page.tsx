@@ -19,15 +19,14 @@ export default function VirtualDevicePage() {
     email: "",
     biometric_id: "",
   });
-
   const [editData, setEditData] = useState<any>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  // ✅ Fetch devices
-  const fetchDevices = async () => {
+  // ✅ Fetch devices from Next.js API
+  const fetchDevices = async (page = 1) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/virtual-device");
+      const res = await fetch(`/api/settings/virtual-device?page=${page}`);
       const data = await res.json();
       setDevices(data.devices || []);
     } catch (err) {
@@ -40,18 +39,22 @@ export default function VirtualDevicePage() {
   // ✅ Create new device
   const handleCreate = async () => {
     try {
-      const res = await fetch("/api/settings/virtual-device", {
-        method: "POST",
+      const payload = {
+        device_id: formData.biometric_id, // adapt as needed
+        ...formData,
+      };
+      const res = await fetch(`/api/settings/virtual-device`, {
+        method: "PUT", // since backend toggles `is_active` on PUT
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok) {
-        alert("Device created successfully!");
+        alert("Device created/updated successfully!");
         setFormData({ first_name: "", last_name: "", mobile: "", email: "", biometric_id: "" });
         fetchDevices();
       } else {
-        alert(data.message || "Failed to create device");
+        alert(data.message || "Failed to create/update device");
       }
     } catch (err) {
       console.error("Error creating device:", err);
@@ -62,12 +65,17 @@ export default function VirtualDevicePage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this device?")) return;
     try {
-      const res = await fetch(`/api/settings/virtual-device/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/settings/virtual-device`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
       if (res.ok) {
         alert("Device deleted");
         fetchDevices();
       } else {
-        alert("Failed to delete device");
+        alert(data.message || "Failed to delete device");
       }
     } catch (err) {
       console.error("Error deleting device:", err);
@@ -83,10 +91,14 @@ export default function VirtualDevicePage() {
   // ✅ Update device
   const handleUpdate = async () => {
     try {
-      const res = await fetch(`/api/settings/virtual-device/${editData.id}`, {
+      const payload = {
+        device_id: editData.biometric_id, // backend requires `device_id`
+        ...editData,
+      };
+      const res = await fetch(`/api/settings/virtual-device`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editData),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok) {

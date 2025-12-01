@@ -198,29 +198,44 @@ export default function AddEmployeePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // 🔄 Update company_id whenever company changes
-  useEffect(() => {
-    setFormData((prev) => ({ ...prev, company_id: companyId, role: "" }));
-  }, [companyId]);
+// 🔄 Fetch roles whenever companyId changes
+useEffect(() => {
+  if (!companyId) return;
 
-  // 🔄 Fetch roles whenever companyId changes
-  useEffect(() => {
-    if (!companyId) return;
-
-    const fetchRoles = async () => {
-      try {
-        const res = await fetch(`/api/settings/roles/${companyId}`);
-        if (!res.ok) throw new Error("Failed to fetch roles");
-        const data = await res.json();
-        if (data.data && Array.isArray(data.data)) setRoles(data.data);
-        else setRoles([]);
-      } catch (err) {
-        console.error("Error fetching roles:", err);
-        setRoles([]);
+  const fetchRoles = async () => {
+    try {
+      const res = await fetch(`/api/settings/roles/${companyId}`);
+      if (!res.ok) throw new Error("Failed to fetch roles");
+      const responseData = await res.json();
+      
+      console.log("Roles API response:", responseData); // Debug log
+      
+      // Handle both response structures:
+      // 1. Direct array from API route: []
+      // 2. Wrapped object from backend: { success: true, data: [...] }
+      let rolesArray = [];
+      
+      if (Array.isArray(responseData)) {
+        // Case 1: Direct array from API route
+        rolesArray = responseData;
+      } else if (responseData.success && Array.isArray(responseData.data)) {
+        // Case 2: Wrapped response from backend
+        rolesArray = responseData.data;
+      } else if (Array.isArray(responseData.data)) {
+        // Case 3: Just data array
+        rolesArray = responseData.data;
       }
-    };
+      
+      console.log("Processed roles:", rolesArray); // Debug log
+      setRoles(rolesArray);
+    } catch (err) {
+      console.error("Error fetching roles:", err);
+      setRoles([]);
+    }
+  };
 
-    fetchRoles();
-  }, [companyId]);
+  fetchRoles();
+}, [companyId]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -333,27 +348,30 @@ export default function AddEmployeePage() {
               <Separator />
 
               {/* Role Dropdown */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Role *</label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Select Role</option>
-                  {roles.length > 0 ? (
-                    roles.map((role: any) => (
-                      <option key={role.id} value={role.name}>
-                        {role.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="" disabled>Loading roles...</option>
-                  )}
-                </select>
-                {errors.role && <p className="text-red-500 text-xs">{errors.role}</p>}
-              </div>
+            {/* Role Dropdown */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Role *</label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Select Role</option>
+                {roles.length > 0 ? (
+                  roles.map((role: any) => (
+                    <option key={role.id} value={role.id}> {/* ✅ Use role.id as value */}
+                      {role.role} {/* ✅ Use role.role for display */}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    {companyId ? "Loading roles..." : "Select a company first"}
+                  </option>
+                )}
+              </select>
+              {errors.role && <p className="text-red-500 text-xs">{errors.role}</p>}
+            </div>
 
               <Input name="biometric_id" value={formData.biometric_id} onChange={handleChange} placeholder="Biometric ID" />
 

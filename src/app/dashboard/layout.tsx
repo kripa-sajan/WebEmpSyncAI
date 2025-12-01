@@ -3,7 +3,7 @@ import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ProfileButton } from "@/components/profile-button";
-import { SwitchCompanyButton } from "@/components/switch-company"; 
+import { SwitchCompanyButton } from "@/components/switch-company"; // or import SwitchCompanyButton from "@/components/switch-company";
 import "leaflet/dist/leaflet.css";
 
 export default function DashboardLayout({
@@ -20,7 +20,7 @@ export default function DashboardLayout({
           <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
           <div className="flex items-center space-x-2">
             <ThemeToggle />
-            <SwitchCompanyButton /> 
+            <SwitchCompanyButton />
             <SignOutButton />
             <ProfileButton />
           </div>

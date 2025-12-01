@@ -3,10 +3,9 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { ChevronLeft, Users, BarChart3, Settings, Building2, Calendar } from "lucide-react"
+import { ChevronLeft, ChevronRight, Users, Settings, Building2, Calendar } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { title } from "process"
 
 interface SidebarProps {
   className?: string
@@ -21,20 +20,13 @@ export function Sidebar({ className }: SidebarProps) {
       icon: Users,
       href: "/dashboard/employees",
     },
-    /*{
-      title: "Attendance",
-      icon: BarChart3,
-      href: "/dashboard/attendance",
-    },*/
-    {
-      title: "Calendar",
-      icon: Calendar,
-      href: "/dashboard/calendar",
-    },
-      { icon: Settings, title: "Settings", href: "/dashboard/settings" },
-  { icon: Building2, title: "Company Profile", href: "/dashboard/company" },
-
-
+    // {
+    //   title: "Calendar",
+    //   icon: Calendar,
+    //   href: "/dashboard/calendar",
+    // },
+    { icon: Settings, title: "Settings", href: "/dashboard/settings" },
+    { icon: Building2, title: "Company Profile", href: "/dashboard/company" },
   ]
 
   return (
@@ -48,25 +40,43 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
+          {/* Logo and title when expanded */}
           {!collapsed && (
             <div className="flex items-center space-x-3">
               <Image src="/empsync-logo.png" alt="EmpSync AI" width={32} height={32} className="rounded-md" />
               <span className="font-semibold text-sidebar-foreground">EmpSync AI</span>
             </div>
           )}
+
+          {/* Logo when collapsed */}
           {collapsed && (
             <div className="flex justify-center w-full">
               <Image src="/empsync-logo.png" alt="EmpSync AI" width={24} height={24} className="rounded-md" />
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCollapsed(!collapsed)}
-            className={cn("h-8 w-8 p-0 text-sidebar-foreground hover:bg-sidebar-accent", collapsed && "hidden")}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+
+          {/* Toggle Buttons */}
+          {!collapsed ? (
+            // Collapse Button
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCollapsed(true)}
+              className="h-8 w-8 p-0 text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          ) : (
+            // Expand Button (shown in same spot)
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCollapsed(false)}
+              className="h-8 w-8 p-0 text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -89,20 +99,6 @@ export function Sidebar({ className }: SidebarProps) {
           ))}
         </ul>
       </nav>
-
-      {/* Collapse button when collapsed */}
-      {collapsed && (
-        <div className="p-2 border-t border-sidebar-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCollapsed(false)}
-            className="w-full h-8 p-0 text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <ChevronLeft className="h-4 w-4 rotate-180" />
-          </Button>
-        </div>
-      )}
     </div>
   )
 }

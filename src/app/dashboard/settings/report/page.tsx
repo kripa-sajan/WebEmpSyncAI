@@ -21,7 +21,7 @@ interface UserRecord {
 }
 
 export default function ReportPage() {
-  const { company } = useAuth(); // ✅ get selected company
+  const { company } = useAuth();
   const [data, setData] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<{ start_date: Date | null; end_date: Date | null }>({
@@ -48,12 +48,37 @@ export default function ReportPage() {
     }
   };
 
-  // ✅ Format time only (HH:mm:ss)
+  // ✅ UPDATED: Format time in 12-hour format (HH:mm AM/PM) - Same as punches page
   const formatTime = (datetime: string) => {
     if (!datetime) return "-";
+    
+    try {
+      // If we have the original string, extract time directly from it
+      const timePart = datetime.split('T')[1]?.replace('Z', '');
+      if (timePart) {
+        const [hours, minutes, seconds] = timePart.split(':');
+        const hourNum = parseInt(hours);
+        const minuteNum = parseInt(minutes);
+        
+        // Convert to 12-hour format
+        const period = hourNum >= 12 ? 'PM' : 'AM';
+        const hour12 = hourNum % 12 || 12;
+        
+        return `${hour12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+      }
+    } catch (e) {
+      console.log("Failed to parse time from string:", e);
+    }
+    
+    // Fallback: use the Date object with UTC methods
     try {
       const d = new Date(datetime);
-      return format(d, "HH:mm:ss");
+      const hours = d.getUTCHours();
+      const minutes = d.getUTCMinutes();
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hour12 = hours % 12 || 12;
+      
+      return `${hour12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
     } catch {
       return datetime.replace("+00:00", "").split("T")[1] || datetime;
     }
@@ -79,7 +104,7 @@ export default function ReportPage() {
         body: JSON.stringify({
           from_date: formatDate(filters.start_date),
           to_date: formatDate(filters.end_date),
-          company_id: company.id, // ✅ send selected company
+          company_id: company.id,
         }),
       });
 
@@ -95,10 +120,17 @@ export default function ReportPage() {
     }
   };
 
-  // Automatically fetch report whenever company changes
+  // ✅ Fixed: Automatically fetch report when company OR date filters change
   useEffect(() => {
     if (company && filters.start_date && filters.end_date) {
       fetchReport();
+    }
+  }, [company, filters.start_date, filters.end_date]); // ✅ Added proper dependencies
+
+  // ✅ Clear data when company changes but dates aren't set
+  useEffect(() => {
+    if (company && (!filters.start_date || !filters.end_date)) {
+      setData([]);
     }
   }, [company]);
 
@@ -135,7 +167,7 @@ export default function ReportPage() {
       ),
     });
 
-    doc.save("punch_report.pdf");
+    doc.save(`punch_report_${company?.name || "unknown"}.pdf`);
   };
 
   return (
@@ -173,9 +205,13 @@ export default function ReportPage() {
         </button>
       </div>
 
-      {!loading && data.length === 0 && (
-        <p className="text-gray-500">No records found</p>
+      {!loading && data.length === 0 && filters.start_date && filters.end_date && (
+        <p className="text-gray-500">No records found for the selected period and company</p>
       )}
+
+      {!filters.start_date || !filters.end_date ? (
+        <p className="text-gray-500">Please select both From Date and To Date</p>
+      ) : null}
 
       {data.length > 0 && (
         <div className="overflow-auto max-h-[60vh] border">
@@ -212,9 +248,6 @@ export default function ReportPage() {
     </div>
   );
 }
-
-
-
 /*"use client";
 
 import { useState, useEffect } from "react";

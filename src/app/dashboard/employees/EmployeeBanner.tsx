@@ -1,3 +1,4 @@
+// src/app/dashboard/employees/EmployeeBanner.tsx
 "use client";
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,10 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { User, useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
-import { UserIcon, Activity } from "lucide-react";
+import { UserIcon, Activity, Calendar, X } from "lucide-react"; // ✅ Added X icon
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation"; // ✅ import router
+import { useRouter } from "next/navigation";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import FullCalendarView from "@/components/FullCalendarView"; // ✅ Import the calendar component
+import { Button } from "@/components/ui/button"; // ✅ Import Button component
 
 interface EmployeeBannerProps {
   employee: User;
@@ -23,8 +28,9 @@ export default function EmployeeBanner({
   onChange,
 }: EmployeeBannerProps) {
   const [imageError, setImageError] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false); // ✅ State to control calendar visibility
   const { currentCompany } = useCompany();
-  const router = useRouter(); // ✅ router hook
+  const router = useRouter();
 
   const showInitials = !employee.prof_img || imageError;
 
@@ -49,130 +55,196 @@ export default function EmployeeBanner({
     }
   };
 
-  // ✅ Navigate to Punch History
-// ✅ Navigate to Punch History with biometric_id
-const handleViewPunch = () => {
-  router.push(`/dashboard/employees/${employee.biometric_id}/punches`);
-};
+  // ✅ Navigate to Punch History with biometric_id
+  const handleViewPunch = () => {
+    router.push(`/dashboard/employees/${employee.biometric_id}/punches`);
+  };
+
+  // ✅ Toggle calendar visibility
+  const handleViewCalendar = () => {
+    setShowCalendar(!showCalendar);
+  };
+
+  // ✅ Handle active status toggle
+  const handleActiveToggle = (checked: boolean) => {
+    onChange?.("is_active", checked);
+  };
 
   return (
-    <Card className="mb-6 border-l-4 border-l-blue-500">
-      <CardHeader className="pb-4 flex justify-between items-start">
-        <div className="flex items-start gap-4">
-          {/* Profile image */}
-          <div className="relative">
-            <Avatar className="h-16 w-16 border-2 border-background shadow-lg">
-              {editMode ? (
-                <div className="flex flex-col items-center justify-center h-16 w-16 gap-1">
-                  <Input
-                    type="text"
-                    value={employee.prof_img || ""}
-                    placeholder="Profile Image URL"
-                    onChange={(e) => onChange?.("prof_img", e.target.value)}
-                    className="h-8 w-full text-xs p-1"
-                  />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="text-xs"
-                  />
-                </div>
-              ) : showInitials ? (
-                <AvatarFallback className="text-lg font-bold bg-blue-100 text-blue-700 flex items-center justify-center">
-                  {employee.first_name?.[0]}
-                  {employee.last_name?.[0]}
-                </AvatarFallback>
-              ) : (
-                <div className="relative h-16 w-16 rounded-full overflow-hidden">
-                  <Image
-                    src={getProfileImageUrl()}
-                    alt={`${employee.first_name} ${employee.last_name}`}
-                    fill
-                    className="object-cover w-full h-full"
-                    onError={() => setImageError(true)}
-                  />
-                </div>
-              )}
-            </Avatar>
-            <div
-              className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background ${
-                employee.is_active ? "bg-green-500" : "bg-gray-400"
-              }`}
-            />
-          </div>
-
-          {/* Employee details */}
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-1">
-              {editMode ? (
-                <>
-                  <Input
-                    value={employee.first_name}
-                    onChange={(e) => onChange?.("first_name", e.target.value)}
-                    placeholder="First Name"
-                    className="font-bold text-xl w-32"
-                  />
-                  <Input
-                    value={employee.last_name}
-                    onChange={(e) => onChange?.("last_name", e.target.value)}
-                    placeholder="Last Name"
-                    className="font-bold text-xl w-32"
-                  />
-                </>
-              ) : (
-                <CardTitle className="text-xl font-bold text-foreground">
-                  {employee.first_name} {employee.last_name}
-                </CardTitle>
-              )}
-
-              <Badge
-                variant={employee.is_active ? "default" : "secondary"}
-                className="bg-blue-100 text-blue-700 border-blue-200"
-              >
-                {employee.is_active ? "Active" : "Inactive"}
-              </Badge>
-            </div>
-
-            {editMode ? (
-              <Input
-                value={employee.role || ""}
-                onChange={(e) => onChange?.("role", e.target.value)}
-                placeholder="Role"
-                className="text-lg w-48"
+    <>
+      <Card className="mb-6 border-l-4 border-l-blue-500">
+        <CardHeader className="pb-4 flex justify-between items-start">
+          <div className="flex items-start gap-4">
+            {/* Profile image */}
+            <div className="relative">
+              <Avatar className="h-16 w-16 border-2 border-background shadow-lg">
+                {editMode ? (
+                  <div className="flex flex-col items-center justify-center h-16 w-16 gap-1">
+                    <Input
+                      type="text"
+                      value={employee.prof_img || ""}
+                      placeholder="Profile Image URL"
+                      onChange={(e) => onChange?.("prof_img", e.target.value)}
+                      className="h-8 w-full text-xs p-1"
+                    />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="text-xs"
+                    />
+                  </div>
+                ) : showInitials ? (
+                  <AvatarFallback className="text-lg font-bold bg-blue-100 text-blue-700 flex items-center justify-center">
+                    {employee.first_name?.[0]}
+                    {employee.last_name?.[0]}
+                  </AvatarFallback>
+                ) : (
+                  <div className="relative h-16 w-16 rounded-full overflow-hidden">
+                    <Image
+                      src={getProfileImageUrl()}
+                      alt={`${employee.first_name} ${employee.last_name}`}
+                      fill
+                      className="object-cover w-full h-full"
+                      onError={() => setImageError(true)}
+                    />
+                  </div>
+                )}
+              </Avatar>
+              <div
+                className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background ${
+                  employee.is_active ? "bg-green-500" : "bg-gray-400"
+                }`}
               />
-            ) : (
-              <p className="text-lg text-muted-foreground mb-2">
-                {employee.role}
-              </p>
-            )}
-
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <UserIcon className="h-4 w-4" />
-                ID: {employee.id}
-              </span>
-              <span className="flex items-center gap-1">
-                <Activity className="h-4 w-4" />
-                {employee.biometric_id}
-              </span>
             </div>
 
-            {/* ✅ View Punch button */}
-            <button
-              onClick={handleViewPunch}
-              className="mt-3 px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-            >
-              View Punch
-            </button>
+            {/* Employee details */}
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-1">
+                {editMode ? (
+                  <>
+                    <Input
+                      value={employee.first_name}
+                      onChange={(e) => onChange?.("first_name", e.target.value)}
+                      placeholder="First Name"
+                      className="font-bold text-xl w-32"
+                    />
+                    <Input
+                      value={employee.last_name}
+                      onChange={(e) => onChange?.("last_name", e.target.value)}
+                      placeholder="Last Name"
+                      className="font-bold text-xl w-32"
+                    />
+                  </>
+                ) : (
+                  <CardTitle className="text-xl font-bold text-foreground">
+                    {employee.first_name} {employee.last_name}
+                  </CardTitle>
+                )}
+
+                {/* Active Status Badge - Always visible */}
+                <Badge
+                  variant={employee.is_active ? "default" : "secondary"}
+                  className="bg-blue-100 text-blue-700 border-blue-200"
+                >
+                  {employee.is_active ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+
+              {editMode ? (
+                <Input
+                  value={employee.role || ""}
+                  onChange={(e) => onChange?.("role", e.target.value)}
+                  placeholder="Role"
+                  className="text-lg w-48"
+                />
+              ) : (
+                <p className="text-lg text-muted-foreground mb-2">
+                  {employee.role}
+                </p>
+              )}
+
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <UserIcon className="h-4 w-4" />
+                  ID: {employee.id}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Activity className="h-4 w-4" />
+                  {employee.biometric_id}
+                </span>
+              </div>
+
+              {/* ✅ Active Status Toggle - Only shown in edit mode */}
+              {editMode && (
+                <div className="flex items-center gap-3 mt-3 p-3 bg-gray-50 rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="active-status"
+                      checked={employee.is_active}
+                      onCheckedChange={handleActiveToggle}
+                    />
+                    <Label htmlFor="active-status" className="text-sm font-medium">
+                      Employee Status
+                    </Label>
+                  </div>
+                  <span className={`text-sm font-medium ${employee.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                    {employee.is_active ? 'Active (Employee can access system)' : 'Inactive (Employee disabled)'}
+                  </span>
+                </div>
+              )}
+
+              {/* ✅ Action Buttons - View Punch and Calendar */}
+              <div className="flex gap-3 mt-3">
+                <Button
+                  onClick={handleViewPunch}
+                  className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white"
+                  size="sm"
+                >
+                  <Activity className="h-4 w-4" />
+                  View Punch
+                </Button>
+                
+                <Button
+                  onClick={handleViewCalendar}
+                  className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
+                  size="sm"
+                >
+                  <Calendar className="h-4 w-4" />
+                  {showCalendar ? "Hide Calendar" : "View Calendar"}
+                </Button>
+              </div>
+            </div>
           </div>
+        </CardHeader>
+      </Card>
+
+      {/* ✅ Calendar Section - Conditionally Rendered */}
+      {showCalendar && (
+        <div className="mb-6 relative">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-foreground">
+              {employee.first_name}'s Attendance Calendar
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCalendar(false)}
+              className="flex items-center gap-2"
+            >
+              <X className="h-4 w-4" />
+              Close Calendar
+            </Button>
+          </div>
+          <FullCalendarView 
+            employeeId={employee.id.toString()}
+            companyId={currentCompany?.id?.toString()}
+          />
         </div>
-      </CardHeader>
-    </Card>
+      )}
+    </>
   );
 }
-
-
 /*
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"

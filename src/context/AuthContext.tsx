@@ -25,7 +25,7 @@ export type Company = {
   id: number;
   company_name: string;
   company_img: string;
-  mediaBaseUrl: string; // <-- add this
+  mediaBaseUrl: string;
   latitude: number;
   longitude: number;
   perimeter: number;
@@ -72,13 +72,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Set user + company data on login or refresh
   const setAuthData = (userData: User, companyData: Company, isAdminData: boolean) => {
+    // Ensure mediaBaseUrl has a default value if not provided
+    const companyWithDefaultMediaUrl = {
+      ...companyData,
+      mediaBaseUrl: companyData.mediaBaseUrl || process.env.NEXT_PUBLIC_MEDIA_URL || "https://empsyncai.kochi.digital"
+    };
+
     setUser(userData);
-    setCompany(companyData);
+    setCompany(companyWithDefaultMediaUrl);
     setIsAdmin(isAdminData);
 
     try {
       localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem("company", JSON.stringify(companyData));
+      localStorage.setItem("company", JSON.stringify(companyWithDefaultMediaUrl));
       localStorage.setItem("isAdmin", JSON.stringify(isAdminData));
       document.cookie = `company_id=${companyData.id}; path=/;`; // update cookie for backend APIs
     } catch (error) {
@@ -86,13 +92,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Switch company without logging out
-  const switchCompany = (newCompany: Company) => {
-    setCompany(newCompany);
-    localStorage.setItem("company", JSON.stringify(newCompany));
+  // Switch company without logging out - UPDATED VERSION
+  const switchCompany = async (newCompany: Company) => {
+    // Ensure mediaBaseUrl has a default value if not provided
+    const companyWithDefaultMediaUrl = {
+      ...newCompany,
+      mediaBaseUrl: newCompany.mediaBaseUrl || process.env.NEXT_PUBLIC_MEDIA_URL || "https://empsyncai.kochi.digital"
+    };
+
+    // Update context state
+    setCompany(companyWithDefaultMediaUrl);
+    localStorage.setItem("company", JSON.stringify(companyWithDefaultMediaUrl));
     document.cookie = `company_id=${newCompany.id}; path=/;`;
 
-    // Optional: notify backend if needed
+    try {
+      // Update company_id cookie via API for server-side usage
+      await fetch('/api/update-company-cookie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: newCompany.id }),
+      });
+      
+      console.log("Company switched successfully:", newCompany.company_name);
+    } catch (err) {
+      console.error("Failed to update company cookie on server:", err);
+      // Don't throw error here - we still want to update the client state even if server update fails
+    }
+
+    // Optional: notify backend if needed (keep your existing endpoint if required)
     fetch("/api/switch-company", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -112,9 +139,6 @@ export const useAuth = () => {
   if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };
-
-
-
 
 /*"use client";
 

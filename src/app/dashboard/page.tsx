@@ -1,4 +1,4 @@
-export default function DashboardPage() {
+/*export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -24,3 +24,19 @@ export default function DashboardPage() {
     </div>
   )
 }
+*/
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+
+export default function DashboardPage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    router.replace("/dashboard/employees")
+  }, [router])
+
+  return null
+}
+
