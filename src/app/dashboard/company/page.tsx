@@ -1187,6 +1187,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import FixPunch from "@/components/fix-punch"
+import { CheckCircle, XCircle } from "lucide-react"
 
 export default function CompanyProfilePage() {
   const { company, updateCompany } = useAuth()
@@ -1196,6 +1197,9 @@ export default function CompanyProfilePage() {
   const [imageError, setImageError] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
+  // Add this near your other useState declarations
+  const [fixPunchResult, setFixPunchResult] = useState<any>(null)
+  const [showFixResult, setShowFixResult] = useState(false)
 
   // Update formData when company changes
   useEffect(() => {
@@ -1718,7 +1722,31 @@ export default function CompanyProfilePage() {
                   <FixPunch 
                     companyId={company.id} 
                     disabled={editMode}
+                    onComplete={(result) => {
+                      setFixPunchResult(result)
+                      setShowFixResult(true)
+                      
+                      // Auto-hide after 5 seconds
+                      setTimeout(() => {
+                        setShowFixResult(false)
+                      }, 5000)
+                    }}
                   />
+                      {/* Show result indicator */}
+                  {showFixResult && fixPunchResult && (
+                    <div className={`text-xs px-2 py-1 rounded ${
+                      fixPunchResult.success 
+                        ? 'bg-green-100 text-green-800 border border-green-200' 
+                        : 'bg-red-100 text-red-800 border border-red-200'
+                    }`}>
+                      {fixPunchResult.success ? (
+                        <span>✓ Fixed {fixPunchResult.fixed || 0} punches</span>
+                      ) : (
+                        <span>✗ Failed: {fixPunchResult.message}</span>
+                      )}
+                    </div>
+                  )}
+            
                 </div>
               </div>
             </CardContent>
@@ -1789,6 +1817,43 @@ export default function CompanyProfilePage() {
             </CardContent>
           </Card>
         </div>
+             
+        {/* Fix Punch Results Notification - ADD THIS HERE */}
+        {showFixResult && fixPunchResult && (
+          <div className={`mt-6 p-4 rounded-lg border ${
+            fixPunchResult.success 
+              ? 'bg-green-50 border-green-200' 
+              : 'bg-red-50 border-red-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {fixPunchResult.success ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}
+                <div>
+                  <h4 className="font-medium">
+                    {fixPunchResult.success ? 'Punch Fix Completed' : 'Punch Fix Failed'}
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    {fixPunchResult.success 
+                      ? `Successfully fixed ${fixPunchResult.fixed || 0} punch records`
+                      : fixPunchResult.message || 'Unknown error occurred'
+                    }
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFixResult(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
+// src/app/dashboard/employees/page.tsx
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { User } from "@/context/AuthContext";
 import { useEmployees } from "@/hooks/employees/useGetEmployees";
@@ -18,12 +19,18 @@ import {
   ChevronRight, 
   MoreHorizontal, 
   Users, 
-  UserCheck
+  UserCheck,
+  Clock
 } from "lucide-react";
 import FilterComponent from "@/components/filter";
 import { useDebounce } from "@/hooks/useDebounce"; 
+import { useRouter } from "next/navigation";
 
-// Define PunchData interface with multiple sessions
+// Import our new hooks
+import { useEmployeeCache } from "@/hooks/useEmployeeCache";
+import { useEmployeePrefetch } from "@/hooks/useEmployeePrefetch";
+
+// Define interfaces
 interface PunchSession {
   check_in?: string;
   check_out?: string;
@@ -46,16 +53,16 @@ interface PunchData {
 // Employee data with unique identifier
 interface EmployeeWithKey extends User {
   uniqueKey: string; // Composite key to prevent duplicates
+  predictedPage?: number; // Predicted page number for faster lookup
 }
 
-// Extract HH:mm from timestamp
+// Helper functions (kept inline as requested)
 function extractTime(dateStr: string | null): string {
   if (!dateStr) return "--";
   if (dateStr.includes("T")) return dateStr.split("T")[1]?.slice(0, 5) || "--";
   return dateStr;
 }
 
-// Calculate current work hours based on check-in time and current time
 function calculateCurrentWorkHours(checkIn: string | null): string {
   if (!checkIn || checkIn === "--") return "--";
   
@@ -68,7 +75,6 @@ function calculateCurrentWorkHours(checkIn: string | null): string {
     
     let totalMinutes = (currentHours * 60 + currentMinutes) - (inHours * 60 + inMinutes);
     
-    // Handle overnight shifts
     if (totalMinutes < 0) {
       totalMinutes += 24 * 60;
     }
@@ -82,7 +88,6 @@ function calculateCurrentWorkHours(checkIn: string | null): string {
   }
 }
 
-// Calculate work hours between two times (for completed sessions)
 function calculateCompletedWorkHours(checkIn: string | null, checkOut: string | null): string {
   if (!checkIn || !checkOut || checkIn === "--" || checkOut === "--") return "--";
   
@@ -92,7 +97,6 @@ function calculateCompletedWorkHours(checkIn: string | null, checkOut: string | 
     
     let totalMinutes = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
     
-    // Handle overnight shifts
     if (totalMinutes < 0) {
       totalMinutes += 24 * 60;
     }
@@ -106,7 +110,6 @@ function calculateCompletedWorkHours(checkIn: string | null, checkOut: string | 
   }
 }
 
-// Calculate total hours from multiple sessions
 function calculateTotalHours(sessions: PunchSession[]): string {
   if (!sessions || sessions.length === 0) return "--";
   
@@ -123,7 +126,6 @@ function calculateTotalHours(sessions: PunchSession[]): string {
         
         let sessionMinutes = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
         
-        // Handle overnight shifts
         if (sessionMinutes < 0) {
           sessionMinutes += 24 * 60;
         }
@@ -154,13 +156,12 @@ function TimeCircle({ sessions, checkIn, checkOut, size = 70 }: {
   
   const hasValidData = totalHours !== "--" && !totalHours.includes("NaN");
   
-  // Calculate progress for the circle (assuming 8-hour work day)
   const calculateProgress = () => {
     if (!hasValidData) return 0;
     
     try {
       const hours = parseFloat(totalHours);
-      const progress = Math.min((hours / 8) * 100, 100); // Cap at 100%
+      const progress = Math.min((hours / 8) * 100, 100);
       return progress;
     } catch {
       return 0;
@@ -177,7 +178,6 @@ function TimeCircle({ sessions, checkIn, checkOut, size = 70 }: {
     <div className="flex flex-col items-center justify-center">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="transform -rotate-90">
-          {/* Background circle */}
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -186,7 +186,6 @@ function TimeCircle({ sessions, checkIn, checkOut, size = 70 }: {
             strokeWidth={strokeWidth}
             fill="none"
           />
-          {/* Progress circle */}
           {hasValidData && (
             <circle
               cx={size / 2}
@@ -203,7 +202,6 @@ function TimeCircle({ sessions, checkIn, checkOut, size = 70 }: {
           )}
         </svg>
         
-        {/* Center text */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <div className="text-sm font-bold text-gray-900">
@@ -262,22 +260,24 @@ function PunchSessions({ sessions, multiMode }: { sessions?: PunchSession[]; mul
 function EmployeesList({ companyId }: { companyId: number }) {
   const [page, setPage] = useState(1);
   const pageSize = 50;
+  const router = useRouter();
   
-  // ✅ State for filters
+  // State for filters
   const [selectedGroupId, setSelectedGroupId] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
+  const [clickLoading, setClickLoading] = useState<string | null>(null); // Track loading employee
 
-  // ✅ Add debounced search query
+  // Debounced search query
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
-
-  // ✅ Only search when query has at least 2 characters (adjust as needed)
   const effectiveSearchQuery = debouncedSearchQuery.length >= 2 ? debouncedSearchQuery : "";
-
-  // ✅ Determine if we should use filtered data (when group OR search is active)
   const hasActiveFilters = selectedGroupId !== 0 || effectiveSearchQuery !== "";
 
-  // ✅ Use both hooks conditionally - UPDATED LOGIC
+  // Employee caching and prefetching hooks
+  const { getEmployee, setEmployee } = useEmployeeCache();
+  const { onHoverStart, onHoverEnd } = useEmployeePrefetch(companyId);
+
+  // Use both hooks conditionally
   const { 
     data: regularEmployeesData, 
     isLoading: regularLoading, 
@@ -292,14 +292,31 @@ function EmployeesList({ companyId }: { companyId: number }) {
     companyId,
     page,
     groupId: selectedGroupId !== 0 ? selectedGroupId : undefined,
-    searchQuery: effectiveSearchQuery // Use effective search query
+    searchQuery: effectiveSearchQuery
   });
 
-
-  // ✅ Use your existing useGroups hook
   const { data: groupsData, isLoading: groupsLoading, error: groupsError } = useGroups();
 
-  // ✅ UPDATED: Determine which data to use based on BOTH group AND search filters
+  // Get groups for display
+  const allGroups = useMemo(() => {
+    if (!groupsData) return [];
+    
+    const groupsArray = groupsData.data || [];
+    
+    const extractedGroups = groupsArray
+      .map((groupItem: any) => ({
+        id: Number(groupItem.id),
+        name: groupItem.group || groupItem.name || "Unnamed Group"
+      }))
+      .filter((group: { id: number; name: string }) => 
+        group.id && group.name.trim() !== ""
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+      
+    return extractedGroups;
+  }, [groupsData]);
+
+  // Determine which data to use
   const employeesData = useMemo(() => {
     if (hasActiveFilters && filteredEmployeesData) {
       return filteredEmployeesData;
@@ -316,54 +333,14 @@ function EmployeesList({ companyId }: { companyId: number }) {
   const [loadingPunches, setLoadingPunches] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // ✅ Use the active users count hook
   const { data: activeUsersData, isLoading: activeUsersLoading } = useActiveUsersCount(companyId);
 
-  // Extract groups from the hook response
-  const allGroups = useMemo(() => {
-    if (!groupsData) {
-      console.log("❌ No groups data");
-      return [];
-    }
-    
-    console.log("📊 Raw groups data:", groupsData);
-
-    // Based on your GroupsPage, the structure is data.data array
-    const groupsArray = groupsData.data || [];
-    console.log("📋 Groups array:", groupsArray);
-
-    // Extract groups with both ID and name - EXACTLY LIKE YOUR GROUPS PAGE
-    const extractedGroups = groupsArray
-      .map((groupItem: any) => {
-        return {
-          id: Number(groupItem.id), // Convert to number for API
-          name: groupItem.group || groupItem.name || "Unnamed Group" // Use 'group' field like in GroupsPage
-        };
-      })
-      .filter((group: { id: number; name: string }) => group.id && group.name.trim() !== "")
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    console.log("🎯 Final extracted groups:", extractedGroups);
-    return extractedGroups;
-
-  }, [groupsData]);
-
-  const selectedGroupName = useMemo(() => {
-    if (selectedGroupId === 0) return null;
-    return allGroups.find(group => group.id === selectedGroupId)?.name || `Group ${selectedGroupId}`;
-  }, [selectedGroupId, allGroups]);
-
-  // ✅ Reset to page 1 when group filter changes
+  // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [selectedGroupId]);
+  }, [selectedGroupId, searchQuery]);
 
-  // ✅ Reset to page 1 when search query changes
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery]);
-
-  // ✅ FIXED: Get the correct pagination data based on filter type
+  // Get pagination data
   const currentPage = useMemo(() => {
     if (hasActiveFilters && filteredEmployeesData) {
       return filteredEmployeesData.page || page;
@@ -378,7 +355,7 @@ function EmployeesList({ companyId }: { companyId: number }) {
     return employeesData?.totalPages || employeesData?.last_page || 1;
   }, [hasActiveFilters, filteredEmployeesData, employeesData]);
 
-  // Update current time every minute for real-time work hours
+  // Update current time every minute
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
@@ -386,13 +363,12 @@ function EmployeesList({ companyId }: { companyId: number }) {
     return () => clearInterval(interval);
   }, []);
 
-  // FIXED: Proper employee data processing with deduplication
+  // Employee data processing with prediction
   const employees: EmployeeWithKey[] = useMemo(() => {
     if (!employeesData) return [];
     
     let rawEmployees: User[] = [];
     
-    // Handle different API response structures
     if (Array.isArray(employeesData)) {
       rawEmployees = employeesData;
     } else if (Array.isArray(employeesData?.employees)) {
@@ -403,7 +379,6 @@ function EmployeesList({ companyId }: { companyId: number }) {
       rawEmployees = employeesData.data;
     }
     
-    // Deduplicate employees using multiple identifiers
     const uniqueEmployees = new Map<string, EmployeeWithKey>();
     
     rawEmployees.forEach((emp) => {
@@ -412,50 +387,51 @@ function EmployeesList({ companyId }: { companyId: number }) {
       const uniqueKey = `${emp.id}-${emp.biometric_id || ''}-${emp.employee_id || ''}`;
       
       if (!uniqueEmployees.has(uniqueKey)) {
+        // Calculate predicted page based on ID for faster future lookups
+        let predictedPage = 1;
+        if (typeof emp.id === 'number' && pageSize > 0) {
+          predictedPage = Math.max(1, Math.ceil(emp.id / pageSize));
+        }
+        
         uniqueEmployees.set(uniqueKey, {
           ...emp,
-          uniqueKey
+          uniqueKey,
+          predictedPage
         });
       }
     });
     
     return Array.from(uniqueEmployees.values());
-  }, [employeesData]);
+  }, [employeesData, pageSize]);
 
-  // ✅ USE THIS INSTEAD - Let backend handle both group and search filtering
   const filteredEmployees = useMemo(() => {
     return employees;
   }, [employees]);
 
-  // SIMPLIFIED: Get total count - UPDATED LOGIC
+  // Total count calculation
   const displayTotalCount = useMemo(() => {
-    // If using filters (group OR search), use the filtered total
     if (hasActiveFilters && filteredEmployeesData) {
       return filteredEmployeesData.totalEmployees || 0;
     }
     
-    // Priority 1: Use count from dedicated API if available and valid
     if (typeof totalCompanyEmployees === 'number' && totalCompanyEmployees > 0) {
       return totalCompanyEmployees;
     }
     
-    // Priority 2: Use totalEmployees from main employees API
     if (employeesData && typeof employeesData.totalEmployees === 'number' && employeesData.totalEmployees > 0) {
       return employeesData.totalEmployees;
     }
     
-    // Priority 3: Use totalCount from main employees API
     if (employeesData && typeof employeesData.totalCount === 'number' && employeesData.totalCount > 0) {
       return employeesData.totalCount;
     }
     
-    // Priority 4: Final fallback - use actual employee count
     return employees.length || 0;
   }, [employeesData, totalCompanyEmployees, employees.length, hasActiveFilters, filteredEmployeesData]);
 
   const currentPageEmployeesCount = filteredEmployees.length;
 
-  // FIXED: Calculate range for display - UPDATED FOR BOTH FILTERS
+  // Calculate range for display
   const calculateRange = () => {
     const totalEmployees = displayTotalCount;
     const currentPageCount = filteredEmployees.length;
@@ -464,14 +440,12 @@ function EmployeesList({ companyId }: { companyId: number }) {
       return { start: 0, end: 0 };
     }
     
-    // For filtered results (group OR search), calculate based on actual pagination
     if (hasActiveFilters) {
       const start = ((currentPage - 1) * pageSize) + 1;
       const end = Math.min(start + currentPageCount - 1, totalEmployees);
       return { start, end };
     }
     
-    // For regular employees (existing logic)
     if (currentPage === 1) {
       return {
         start: 1,
@@ -496,16 +470,66 @@ function EmployeesList({ companyId }: { companyId: number }) {
 
   const { start, end } = calculateRange();
 
-  // Rest of your component remains the same...
+  // ⚡ OPTIMIZED: Employee click handler with fast lookup
+  const handleEmployeeClick = useCallback(async (employee: EmployeeWithKey, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const employeeId = employee.id.toString();
+    setClickLoading(employeeId);
+    
+    console.log(`🔍 Clicking employee: ${employeeId} (Predicted page: ${employee.predictedPage})`);
+    
+    try {
+      // 1. INSTANT: Check cache first
+      const cachedEmployee = getEmployee(employeeId, companyId);
+      if (cachedEmployee) {
+        console.log('⚡ Instant from cache!');
+        router.push(`/dashboard/employees/${employeeId}`);
+        return;
+      }
+      
+      // 2. FAST: Try direct API lookup
+      const startTime = Date.now();
+      const response = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          company_id: companyId,
+          employee_id: employeeId 
+        }),
+      });
+      
+      const data = await response.json();
+      const searchTime = Date.now() - startTime;
+      
+      if (data.success && data.data) {
+        console.log(`✅ Found in ${searchTime}ms`);
+        
+        // Cache for future clicks
+        setEmployee(employeeId, data.data, companyId);
+        router.push(`/dashboard/employees/${employeeId}`);
+      } else {
+        console.error('Employee not found via API');
+        // Fallback to regular navigation
+        router.push(`/dashboard/employees/${employeeId}`);
+      }
+    } catch (error) {
+      console.error('Failed to fetch employee:', error);
+      // Fallback to regular navigation
+      router.push(`/dashboard/employees/${employeeId}`);
+    } finally {
+      setClickLoading(null);
+    }
+  }, [companyId, getEmployee, setEmployee, router]);
 
-  // ✅ Handle page change - ensure it works with both regular and group filters
+  // Handle page change
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
-    // Scroll to top when changing pages
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Fetch punches with better error handling and cancellation
+  // Fetch punches
   useEffect(() => {
     if (!filteredEmployees.length) {
       setLoadingPunches(false);
@@ -520,7 +544,6 @@ function EmployeesList({ companyId }: { companyId: number }) {
       const punchesData: Record<string, PunchData> = {};
 
       try {
-        // Process employees in batches to avoid overwhelming the API
         const batchSize = 10;
         for (let i = 0; i < filteredEmployees.length; i += batchSize) {
           if (cancelled) break;
@@ -562,7 +585,6 @@ function EmployeesList({ companyId }: { companyId: number }) {
             })
           );
           
-          // Small delay between batches to avoid rate limiting
           if (i + batchSize < filteredEmployees.length) {
             await new Promise(resolve => setTimeout(resolve, 100));
           }
@@ -583,36 +605,28 @@ function EmployeesList({ companyId }: { companyId: number }) {
     };
   }, [filteredEmployees, companyId]);
 
-  // Generate page numbers like Flipkart
+  // Generate page numbers
   const generatePageNumbers = () => {
-    // If no pages or only one page, don't show pagination
     if (totalPages <= 1) return [];
     
     const pages = [];
-    
-    // Always show first page
     pages.push(1);
     
-    // Calculate range around current page
     let startPage = Math.max(2, currentPage - 1);
     let endPage = Math.min(totalPages - 1, currentPage + 1);
     
-    // Add ellipsis after first page if needed
     if (startPage > 2) {
       pages.push("...");
     }
     
-    // Add pages around current page
     for (let i = startPage; i <= endPage; i++) {
       pages.push(i);
     }
     
-    // Add ellipsis before last page if needed
     if (endPage < totalPages - 1) {
       pages.push("...");
     }
     
-    // Always show last page if there is more than one page
     if (totalPages > 1) {
       pages.push(totalPages);
     }
@@ -620,13 +634,17 @@ function EmployeesList({ companyId }: { companyId: number }) {
     return pages;
   };
 
-  // ✅ Clear all filters
+  // Clear all filters
   const clearFilters = () => {
     setSelectedGroupId(0);
     setSearchQuery("");
     setPage(1);
   };
 
+  const getProfileImageUrl = (emp: User) =>
+    emp.prof_img ? (emp.prof_img.startsWith("http") ? emp.prof_img : `${currentCompany?.mediaBaseUrl}${emp.prof_img}`) : null;
+
+  const pageNumbers = generatePageNumbers();
 
   if (isLoading) return (
     <div className="flex justify-center items-center py-8">
@@ -641,12 +659,7 @@ function EmployeesList({ companyId }: { companyId: number }) {
     </div>
   );
 
-  const getProfileImageUrl = (emp: User) =>
-    emp.prof_img ? (emp.prof_img.startsWith("http") ? emp.prof_img : `${currentCompany?.mediaBaseUrl}${emp.prof_img}`) : null;
-
-  const pageNumbers = generatePageNumbers();
-
-   return (
+  return (
     <div>
       {/* Enhanced Header with Active Users Count */}
       <div className="mb-6">
@@ -663,15 +676,13 @@ function EmployeesList({ companyId }: { companyId: number }) {
             <h1 className="text-2xl font-bold text-gray-900">All Employees</h1>
             <p className="text-sm text-gray-600 mt-1">
               {selectedGroupId !== 0 ? (
-                <>Filtered by: <span className="font-semibold text-blue-600">{selectedGroupName}</span></>
+                <>Filtered by: <span className="font-semibold text-blue-600">{allGroups.find(g => g.id === selectedGroupId)?.name || `Group ${selectedGroupId}`}</span></>
               ) : (
                 <>Showing all employees</>
               )}
             </p>
           </div>
           
-          {/* Filter Component */}
-       
           <FilterComponent
             selectedGroupId={selectedGroupId}
             setSelectedGroupId={setSelectedGroupId}
@@ -682,7 +693,7 @@ function EmployeesList({ companyId }: { companyId: number }) {
             groupsData={groupsData}
             groupsLoading={groupsLoading}
             groupsError={groupsError}
-            filteredLoading={filteredLoading} // ✅ Add this
+            filteredLoading={filteredLoading}
           />
         </div>
       </div>
@@ -734,7 +745,6 @@ function EmployeesList({ companyId }: { companyId: number }) {
             </div>
           </div>
           
-          {/* Gender Breakdown */}
           {!activeUsersLoading && activeUsersData && (
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="grid grid-cols-3 gap-2 text-center">
@@ -801,110 +811,118 @@ function EmployeesList({ companyId }: { companyId: number }) {
               return (
                 <li
                   key={emp.uniqueKey}
-                  className="border border-gray-200 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
+                  className="border border-gray-200 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors shadow-sm group"
+                  onMouseEnter={() => onHoverStart(emp.id.toString())}
+                  onMouseLeave={() => onHoverEnd(emp.id.toString())}
+                  onClick={(e) => handleEmployeeClick(emp, e)}
                 >
-                  <Link
-                    href={`/dashboard/employees/${emp.id}`}
-                    className="block"
-                  >
-                    <div className="flex items-center justify-between">
-                      {/* Left Section - Profile and Employee Details */}
-                      <div className="flex items-center gap-4 flex-1">
-                        {/* Profile */}
-                        <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          {profileUrl ? (
-                            <Image
-                              src={profileUrl}
-                              alt={`${emp.first_name} ${emp.last_name}`}
-                              width={56}
-                              height={56}
-                              className="object-cover h-14 w-14"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-blue-100 text-blue-700 font-bold text-lg">
-                              {initials}
-                            </div>
-                          )}
-                        </div>
+                  <div className="flex items-center justify-between">
+                    {/* Left Section - Profile and Employee Details */}
+                    <div className="flex items-center gap-4 flex-1">
+                      {/* Profile */}
+                      <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100 flex items-center justify-center flex-shrink-0">
+                        {profileUrl ? (
+                          <Image
+                            src={profileUrl}
+                            alt={`${emp.first_name} ${emp.last_name}`}
+                            width={56}
+                            height={56}
+                            className="object-cover h-14 w-14"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-14 w-14 rounded-full bg-blue-100 text-blue-700 font-bold text-lg">
+                            {initials}
+                          </div>
+                        )}
+                      </div>
 
-                        {/* Employee Details */}
-                        <div className="flex flex-col min-w-0">
+                      {/* Employee Details with loading indicator */}
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2">
                           <p className="font-semibold text-gray-900 truncate">
                             {emp.first_name} {emp.last_name}
                           </p>
-                          <p className="text-sm text-gray-500 truncate">{emp.email}</p>
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {emp.group && (
-                              <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
-                                {emp.group}
-                              </span>
-                            )}
-                            {emp.is_wfh !== undefined && (
-                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                                {emp.is_wfh ? "WFH" : "Office"}
-                              </span>
-                            )}
-                            {multiMode && totalSessions > 1 && (
-                              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                                {totalSessions} Sessions
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Middle Section - Punch Times */}
-                      <div className="flex items-center gap-8 mx-8">
-                        {/* Check-in */}
-                        <div className="flex flex-col items-center">
-                          <div className="flex items-center gap-2 mb-1">
-                            <ArrowUpCircle className="h-4 w-4 text-green-500" />
-                            <span className="text-xs font-medium text-gray-500">IN</span>
-                          </div>
-                          <span className="text-lg font-bold text-gray-900">
-                            {checkInTime}
-                          </span>
-                          {multiMode && punch?.check_in_count > 1 && (
-                            <span className="text-xs text-green-600 font-medium">
-                              +{punch.check_in_count - 1}
-                            </span>
+                          {clickLoading === emp.id.toString() && (
+                            <Clock className="h-4 w-4 text-blue-600 animate-spin" />
                           )}
                         </div>
-                        
-                        {/* Check-out */}
-                        <div className="flex flex-col items-center">
-                          <div className="flex items-center gap-2 mb-1">
-                            <ArrowDownCircle className="h-4 w-4 text-red-500" />
-                            <span className="text-xs font-medium text-gray-500">OUT</span>
-                          </div>
-                          <span className="text-lg font-bold text-gray-900">
-                            {checkOutTime}
-                          </span>
-                          {multiMode && punch?.check_out_count > 1 && (
-                            <span className="text-xs text-red-600 font-medium">
-                              +{punch.check_out_count - 1}
+                        <p className="text-sm text-gray-500 truncate">{emp.email}</p>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {emp.group && (
+                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
+                              {emp.group}
                             </span>
                           )}
+                          {emp.is_wfh !== undefined && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                              {emp.is_wfh ? "WFH" : "Office"}
+                            </span>
+                          )}
+                          {multiMode && totalSessions > 1 && (
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                              {totalSessions} Sessions
+                            </span>
+                          )}
+                          {/* {emp.predictedPage && emp.predictedPage > 1 && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                              Page {emp.predictedPage}
+                            </span>
+                          )} */}
                         </div>
-                      </div>
-
-                      {/* Right Section - Average Work Hours */}
-                      <div className="flex items-center justify-end flex-shrink-0">
-                        <TimeCircle 
-                          sessions={sessions} 
-                          checkIn={checkInTime} 
-                          checkOut={checkOutTime} 
-                        />
                       </div>
                     </div>
 
-                    {/* Multiple Sessions Display */}
-                    <PunchSessions sessions={sessions} multiMode={multiMode} />
-                  </Link>
+                    {/* Middle Section - Punch Times */}
+                    <div className="flex items-center gap-8 mx-8">
+                      {/* Check-in */}
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-2 mb-1">
+                          <ArrowUpCircle className="h-4 w-4 text-green-500" />
+                          <span className="text-xs font-medium text-gray-500">IN</span>
+                        </div>
+                        <span className="text-lg font-bold text-gray-900">
+                          {checkInTime}
+                        </span>
+                        {multiMode && punch?.check_in_count > 1 && (
+                          <span className="text-xs text-green-600 font-medium">
+                            +{punch.check_in_count - 1}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Check-out */}
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-2 mb-1">
+                          <ArrowDownCircle className="h-4 w-4 text-red-500" />
+                          <span className="text-xs font-medium text-gray-500">OUT</span>
+                        </div>
+                        <span className="text-lg font-bold text-gray-900">
+                          {checkOutTime}
+                        </span>
+                        {multiMode && punch?.check_out_count > 1 && (
+                          <span className="text-xs text-red-600 font-medium">
+                            +{punch.check_out_count - 1}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Section - Average Work Hours */}
+                    <div className="flex items-center justify-end flex-shrink-0">
+                      <TimeCircle 
+                        sessions={sessions} 
+                        checkIn={checkInTime} 
+                        checkOut={checkOutTime} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* Multiple Sessions Display */}
+                  <PunchSessions sessions={sessions} multiMode={multiMode} />
                 </li>
               );
             })}
@@ -951,8 +969,7 @@ function EmployeesList({ companyId }: { companyId: number }) {
             </div>
           )}
           
-          {/* Page Info - Fixed display */}
-          
+          {/* Page Info */}
           <div className="text-center mt-4 text-sm text-gray-500">
             Page {currentPage} of {totalPages} • 
             {displayTotalCount > 0 ? (
@@ -962,7 +979,7 @@ function EmployeesList({ companyId }: { companyId: number }) {
             )}
             {selectedGroupId !== 0 && (
               <span className="ml-2 text-blue-600">
-                • Filtered by: {selectedGroupName}
+                • Filtered by: {allGroups.find(g => g.id === selectedGroupId)?.name || `Group ${selectedGroupId}`}
               </span>
             )}
             {searchQuery && (
@@ -984,7 +1001,6 @@ export default function EmployeesPage() {
 
   return <EmployeesList companyId={company.id} />;
 }
-
 // "use client";
 
 // import { useState, useEffect, useMemo } from "react";
