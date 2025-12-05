@@ -7,14 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { User, useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
-import { UserIcon, Activity, Calendar, X } from "lucide-react"; // ✅ Added X icon
+import { UserIcon, Activity, Calendar, X } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import FullCalendarView from "@/components/FullCalendarView"; // ✅ Import the calendar component
-import { Button } from "@/components/ui/button"; // ✅ Import Button component
+import FullCalendarView from "@/components/FullCalendarView";
+import { Button } from "@/components/ui/button";
 
 interface EmployeeBannerProps {
   employee: User;
@@ -28,7 +28,7 @@ export default function EmployeeBanner({
   onChange,
 }: EmployeeBannerProps) {
   const [imageError, setImageError] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false); // ✅ State to control calendar visibility
+  const [showCalendar, setShowCalendar] = useState(false);
   const { currentCompany } = useCompany();
   const router = useRouter();
 
@@ -55,10 +55,26 @@ export default function EmployeeBanner({
     }
   };
 
-  // ✅ Navigate to Punch History with biometric_id
-  const handleViewPunch = () => {
-    router.push(`/dashboard/employees/${employee.biometric_id}/punches`);
-  };
+  // ✅ Navigate to Punch History with biometric_id as query parameter - FIXED
+// ✅ Navigate to Punch History with biometric_id as query parameter - FIXED
+const handleViewPunch = () => {
+  // Check if employee.id exists
+  if (!employee.id) {
+    console.error("Employee ID is undefined");
+    return;
+  }
+
+  // Build URL with query params
+  let url = `/dashboard/employees/${employee.id}/punches`;
+  
+  // Add biometric_id as query parameter if it exists
+  if (employee.biometric_id && employee.biometric_id.trim() !== '') {
+    url += `?biometric_id=${encodeURIComponent(employee.biometric_id)}`;
+  }
+
+  console.log("Navigating to:", url); // Debug log
+  router.push(url);
+};
 
   // ✅ Toggle calendar visibility
   const handleViewCalendar = () => {
@@ -171,7 +187,7 @@ export default function EmployeeBanner({
                 </span>
                 <span className="flex items-center gap-1">
                   <Activity className="h-4 w-4" />
-                  {employee.biometric_id}
+                  {employee.biometric_id || "No biometric ID"}
                 </span>
               </div>
 

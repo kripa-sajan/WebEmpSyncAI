@@ -3046,17 +3046,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation"; // Added useSearchParams
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import Link from "next/link";
-import { ArrowLeft, UserIcon, Activity, ArrowUpCircle, ArrowDownCircle, ChevronDown, ChevronRight } from "lucide-react"; // Removed BugIcon
+import { ArrowLeft, UserIcon, Activity, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import Image from "next/image";
 import { useEmployee } from "@/hooks/employees/useGetEmployee";
-
-// Add the FixPunch component import
-import FixPunch from "@/components/fix-punch"; // You'll need to create this file or adjust the path
+import FixPunch from "@/components/fix-punch";
 
 // Fixed TimeCircle component
 function TimeCircle({ checkIn, checkOut, size = 70 }: {
@@ -3272,7 +3270,8 @@ const isAfternoonTime = (timeStr: string): boolean => {
 };
 
 export default function EmployeePunchPage() {
-  const { id } = useParams();
+  const { id } = useParams(); // This is the employee_id (user_id) from URL - e.g., 91
+  const searchParams = useSearchParams(); // Get query params
   const { company } = useAuth();
 
   const [punches, setPunches] = useState<any[]>([]);
@@ -3284,9 +3283,32 @@ export default function EmployeePunchPage() {
   const [imageError, setImageError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [todaysPunch, setTodaysPunch] = useState<any>(null);
-  // Commented out debug states
-  // const [debugInfo, setDebugInfo] = useState<any>(null);
-  // const [showDebug, setShowDebug] = useState(false);
+
+  // Get biometric_id from query params if provided, otherwise will use from employee data
+  const biometricIdFromQuery = searchParams.get('biometric_id');
+
+  // Use the hook to fetch specific employee by user_id (91)
+  const { data: employeeData, isLoading: employeeLoading } = useEmployee(company?.id, id as string);
+
+  // Set employee state when data is available
+  useEffect(() => {
+    if (employeeData) {
+      setEmployee(employeeData);
+      console.log("✅ Employee data loaded:", {
+        user_id: employeeData.id,
+        biometric_id: employeeData.biometric_id,
+        biometric_id_from_query: biometricIdFromQuery
+      });
+    } else if (!employeeLoading && id) {
+      // Set default employee info if not found after loading
+      setEmployee({
+        id: id as string,
+        first_name: "Employee",
+        last_name: "",
+        biometric_id: id as string
+      });
+    }
+  }, [employeeData, employeeLoading, id, biometricIdFromQuery]);
 
   // Helper to get profile image URL
   const getProfileImageUrl = (emp: any) => {
@@ -3414,33 +3436,7 @@ export default function EmployeePunchPage() {
     return formatTimeDirect(originalTimeString);
   }, [formatTimeDirect]);
 
-  // Commented out debug function
-  /*
-  // Add this new function to format debug information for each row
-  const formatRowDebugInfo = useCallback((row: any, index: number) => {
-    return {
-      rowIndex: index,
-      date: row.dateDisplay,
-      punchIn: row.punchIn,
-      punchOut: row.punchOut,
-      status: row.status,
-      workTime: row.workTime,
-      hasPunches: row.hasPunches,
-      entryCount: row.entryCount,
-      rawTimes: row.rawTimes,
-      dateKey: row.dateKey,
-      debugEntries: row.debugEntries,
-      // Add timezone information
-      timezoneInfo: {
-        localTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        currentTime: new Date().toLocaleString(),
-        currentUTCTime: new Date().toUTCString()
-      }
-    };
-  }, []);
-  */
-
-  // Fetch today's punch data
+  // Fetch today's punch data - UPDATED to accept biometricId parameter
   const fetchTodaysPunch = useCallback(async (biometricId: string) => {
     if (!company) return null;
 
@@ -3513,24 +3509,6 @@ export default function EmployeePunchPage() {
       };
     }
   }, [company]);
-
-  // Use the hook to fetch specific employee
-  const { data: employeeData, isLoading: employeeLoading } = useEmployee(company?.id, id as string);
-
-  // Set employee state when data is available
-  useEffect(() => {
-    if (employeeData) {
-      setEmployee(employeeData);
-    } else if (!employeeLoading && id) {
-      // Set default employee info if not found after loading
-      setEmployee({
-        id: id as string,
-        first_name: "Employee",
-        last_name: "",
-        biometric_id: id as string
-      });
-    }
-  }, [employeeData, employeeLoading, id]);
 
   // Helper to format date
   const formatDate = (date: Date, formatStr: string): string => {
@@ -3831,10 +3809,10 @@ export default function EmployeePunchPage() {
     setAverageWorkTime(formatMinutesToTime(averageMinutes));
   }, [calculateWorkTime, formatMinutesToTime]);
 
-  // Fetch + process punches with enhanced error handling
+  // Fetch + process punches with enhanced error handling - UPDATED to use biometric_id from query or employee
   const fetchPunches = useCallback(async () => {
-    if (!company || !startDate || !endDate || !employee) {
-      setError("Missing required data: company, dates, or employee");
+    if (!company || !startDate || !endDate) {
+      setError("Missing required data: company or dates");
       return;
     }
 
@@ -3842,7 +3820,28 @@ export default function EmployeePunchPage() {
     setError(null);
 
     try {
-      const biometricId = employee?.biometric_id || id;
+      // Get biometric_id: Priority 1. From query params, 2. From employee data, 3. Fallback to URL id
+      let biometricId;
+      
+      if (biometricIdFromQuery) {
+        // Use biometric_id from query params (most reliable)
+        biometricId = biometricIdFromQuery;
+        console.log("🔍 Using biometric_id from query params:", biometricId);
+      } else if (employee?.biometric_id) {
+        // Use biometric_id from employee data
+        biometricId = employee.biometric_id;
+        console.log("🔍 Using biometric_id from employee data:", biometricId);
+      } else {
+        // Fallback to URL id
+        biometricId = id as string;
+        console.log("🔍 Using URL id as fallback biometric_id:", biometricId);
+      }
+
+      if (!biometricId) {
+        setError("Unable to determine biometric ID for fetching punches");
+        setLoading(false);
+        return;
+      }
 
       const payload = {
         biometric_id: biometricId,
@@ -3850,6 +3849,8 @@ export default function EmployeePunchPage() {
         start_date: format(startDate, "yyyy-MM-dd"),
         end_date: format(endDate, "yyyy-MM-dd"),
       };
+
+      console.log("📊 Fetching punches with payload:", payload);
 
       // Fetch today's punch data
       const todayPunchData = await fetchTodaysPunch(biometricId);
@@ -3949,7 +3950,6 @@ export default function EmployeePunchPage() {
               entryCount: 0,
               workTime: 0,
               dateKey: dateKey,
-              // Removed debugEntries
             };
           }
 
@@ -4015,11 +4015,9 @@ export default function EmployeePunchPage() {
             entryCount,
             workTime,
             dateKey: dateKey,
-            // Removed debugEntries
           };
         });
 
-      // FIXED: Update today's row with real-time data from todaypunch API - MIDNIGHT FIX
       // FIXED: Update today's row with real-time data from todaypunch API - MIDNIGHT FIX
       const today = format(new Date(), "yyyy-MM-dd");
       const todayRowIndex = rows.findIndex(row => row.dateKey === today);
@@ -4055,7 +4053,6 @@ export default function EmployeePunchPage() {
               workTime: todayWorkTime,
               status: todayStatus,
               hasPunches: todayCheckIn !== "-" || todayCheckOut !== "-",
-              // Removed debugEntries
             };
           } else {
             // Data is from yesterday (midnight case) - apply to yesterday's row instead
@@ -4081,7 +4078,6 @@ export default function EmployeePunchPage() {
                 workTime: yesterdayWorkTime,
                 status: yesterdayStatus,
                 hasPunches: yesterdayCheckIn !== "-" || yesterdayCheckOut !== "-",
-                // Removed debugEntries
               };
             }
           }
@@ -4110,23 +4106,23 @@ export default function EmployeePunchPage() {
     } finally {
       setLoading(false);
     }
-  }, [company, startDate, endDate, employee, id, fetchTodaysPunch, fetchAllPunches, getRecordDatetime, getNormalizedType, formatTimeWithDetection, calculateWorkTime, calculateAverageWorkTime, getUTCDateKey]);
+  }, [company, startDate, endDate, employee, id, biometricIdFromQuery, fetchTodaysPunch, fetchAllPunches, getRecordDatetime, getNormalizedType, formatTimeWithDetection, calculateWorkTime, calculateAverageWorkTime, getUTCDateKey]);
 
   // Set default dates when company and employee are available
   useEffect(() => {
-    if (company && employee && !startDate && !endDate) {
+    if (company && !startDate && !endDate) {
       const now = new Date();
       setStartDate(new Date(now.getFullYear(), now.getMonth(), 1));
       setEndDate(now);
     }
-  }, [company, employee, startDate, endDate]);
+  }, [company, startDate, endDate]);
 
   // Auto-fetch when dates change
   useEffect(() => {
-    if (startDate && endDate && company && employee) {
+    if (startDate && endDate && company) {
       fetchPunches();
     }
-  }, [startDate, endDate, company, employee, fetchPunches]);
+  }, [startDate, endDate, company, fetchPunches]);
 
   if (employeeLoading || !employee) {
     return (
@@ -4141,6 +4137,9 @@ export default function EmployeePunchPage() {
 
   const profileImageUrl = getProfileImageUrl(employee);
   const initials = `${employee.first_name?.[0] || ""}${employee.last_name?.[0] || ""}`;
+  
+  // Get today's punch info - use biometric_id from query or employee
+  const biometricIdForToday = biometricIdFromQuery || employee?.biometric_id || id;
   const todayCheckIn = todaysPunch?.first_check_in ? formatTimeDirect(todaysPunch.first_check_in) : "-";
   const todayCheckOut = todaysPunch?.last_check_out ? formatTimeDirect(todaysPunch.last_check_out) : "-";
 
@@ -4156,16 +4155,6 @@ export default function EmployeePunchPage() {
             <ArrowLeft className="h-4 w-4" />
             Back to Employees
           </Link>
-
-          {/* {company && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 hidden md:inline">Fix punch data issues:</span>
-                <FixPunch 
-                  companyId={company.id} 
-                  disabled={loading || !company}
-                />
-              </div>
-            )} */}
         </div>
 
         {/* Employee Banner with Photo and Details */}
@@ -4197,6 +4186,11 @@ export default function EmployeePunchPage() {
                 <h1 className="text-2xl font-bold text-gray-900">
                   {employee.first_name} {employee.last_name}
                 </h1>
+                {/* {biometricIdFromQuery && (
+                  <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    Query ID: {biometricIdFromQuery}
+                  </span>
+                )} */}
               </div>
 
               {employee.role && (
@@ -4212,8 +4206,14 @@ export default function EmployeePunchPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <Activity className="h-4 w-4" />
-                  {employee.biometric_id}
+                  Biometric ID: {employee.biometric_id || "N/A"}
                 </span>
+                {/* {biometricIdForToday && biometricIdForToday !== employee.id && (
+                  <span className="flex items-center gap-1 text-green-600">
+                    <Activity className="h-4 w-4" />
+                    Fetching punches with: {biometricIdForToday}
+                  </span>
+                )} */}
               </div>
 
               {/* Today's Punch Info */}
@@ -4365,20 +4365,20 @@ export default function EmployeePunchPage() {
         >
           {loading ? "Loading..." : "Refresh"}
         </button>
-        <FixPunch
-          companyId={company.id}
-          disabled={loading || !company}
-          className="mt-6 px-4 py-2" // Add padding to match refresh button
-          onComplete={(result) => {
-            // Optional: You can trigger a refetch of punches here
-            if (result.success && (result.fixed > 0 || result.updated > 0)) {
-              // Refetch punches after a delay
-              setTimeout(() => {
-                fetchPunches()
-              }, 1000)
-            }
-          }}
-        />
+        {company && (
+          <FixPunch
+            companyId={company.id}
+            disabled={loading || !company}
+            className="mt-6 px-4 py-2"
+            onComplete={(result) => {
+              if (result.success && (result.fixed > 0 || result.updated > 0)) {
+                setTimeout(() => {
+                  fetchPunches()
+                }, 1000)
+              }
+            }}
+          />
+        )}
       </div>
 
       {/* Punch Records Table */}
